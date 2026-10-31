@@ -11,7 +11,7 @@ const adb = require('./adb');
 
 const RAIZ = path.resolve(__dirname, '..', '..');
 const CONFIG = path.join(RAIZ, 'config');
-const SAIDA = path.join(RAIZ, 'saida');
+const SAIDA = process.env.TVBUILD_SAIDA || path.join(RAIZ, 'saida');
 
 const RE_PKG = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/;
 const RE_COMP = /^[A-Za-z0-9_.]+\/[A-Za-z0-9_.$]+$/;
@@ -184,14 +184,32 @@ async function memoria(ctx) {
   return m;
 }
 
+// Quando a TV tem várias telas iniciais e nenhuma é a padrão, o Android responde com o
+// seletor do sistema ("android/...ResolverActivity"). Aí não dá para saber qual está em uso,
+// então TODAS as telas iniciais ficam protegidas.
+function launcherIndefinido(comp) {
+  return !comp || comp.split('/')[0] === 'android';
+}
+
+async function launchersProtegidos(ctx, atual) {
+  if (!launcherIndefinido(atual)) return [atual.split('/')[0]];
+  return [...new Set((await launchersDisponiveis(ctx)).map((c) => c.split('/')[0]).filter((p) => p !== 'android'))];
+}
+
 async function protecaoDinamica(ctx) {
-  const launcher = await launcherAtual(ctx);
-  const teclado = await tecladoAtual(ctx);
-  return { launcher: launcher.split('/')[0], teclado: teclado.split('/')[0], padroes: padroesProtegidos() };
+  const [launcher, teclado] = await Promise.all([launcherAtual(ctx), tecladoAtual(ctx)]);
+  return {
+    launcher: launcher.split('/')[0],
+    launchers: await launchersProtegidos(ctx, launcher),
+    indefinido: launcherIndefinido(launcher),
+    teclado: teclado.split('/')[0],
+    padroes: padroesProtegidos(),
+  };
 }
 
 // devolve o motivo (string) se o pacote é protegido, ou null
 function motivoProtecao(pkg, prot, ignorarPadroes = false) {
+  if (prot.launchers && prot.launchers.includes(pkg)) return prot.indefinido ? 'pode ser o launcher em uso (nenhuma tela inicial padrão definida)' : 'launcher em uso';
   if (prot.launcher && pkg === prot.launcher) return 'launcher em uso';
   if (prot.teclado && pkg === prot.teclado) return 'teclado em uso';
   if (ignorarPadroes) return null;
@@ -316,7 +334,7 @@ async function classificar(alvo) {
     const txt = ['essencial', 'bloat', 'launcher', 'usuario', 'duvida'].map((c) =>
       `=== ${c.toUpperCase()} ===\n` + apps.filter((a) => a.categoria === c).map((a) => `  ${a.pkg}${a.desativado ? ' [desativado]' : ''}${a.desc ? '  (' + a.desc + ')' : ''}${a.motivo ? '  (' + a.motivo + ')' : ''}`).join('\n')).join('\n\n');
     fs.writeFileSync(path.join(ctx.p.saida, `classificacao_${ctx.data}.txt`), `Classificação — ${ctx.data} — ${ctx.alvo}\nLauncher: ${prot.launcher}  Teclado: ${prot.teclado}\n\n${txt}\n`);
-    return ctx.resultado({ apps, launcher: prot.launcher, teclado: prot.teclado });
+    return ctx.resultado({ apps, launcher: prot.indefinido ? '' : prot.launcher, teclado: prot.teclado });
   });
 }
 
@@ -350,14 +368,15 @@ async function launcherStatus(alvo) {
   const ctx = await ctxConectado(alvo);
   return naFila(ctx.alvo, async () => {
     const [atual, disponiveis, ativos, todos] = await Promise.all([launcherAtual(ctx), launchersDisponiveis(ctx), pacotes(ctx, '-e'), pacotes(ctx)]);
-    const prot = { launcher: atual.split('/')[0], teclado: '', padroes: padroesProtegidos() };
+    const indefinido = launcherIndefinido(atual);
+    const prot = { launcher: atual.split('/')[0], launchers: indefinido ? [...new Set(disponiveis.map((c) => c.split('/')[0]))] : [atual.split('/')[0]], indefinido, teclado: '', padroes: padroesProtegidos() };
     const conhecidos = new Map(lerLista('launchers_anuncio.txt').map((x) => [x.pkg, x.desc]));
     const setAtivos = new Set(ativos);
     const lista = disponiveis.map((comp) => {
       const pkg = comp.split('/')[0];
       return {
         comp, pkg,
-        emUso: pkg === prot.launcher,
+        emUso: !indefinido && pkg === prot.launcher,
         ativo: setAtivos.has(pkg),
         conhecidoComAnuncio: conhecidos.has(pkg),
         desc: conhecidos.get(pkg) || '',
@@ -368,7 +387,7 @@ async function launcherStatus(alvo) {
     for (const [pkg, desc] of conhecidos) {
       if (todos.includes(pkg) && !lista.some((l) => l.pkg === pkg)) lista.push({ comp: '', pkg, emUso: false, ativo: false, conhecidoComAnuncio: true, desc, protegido: null });
     }
-    return ctx.resultado({ atual, lista, projectivyInstalado: todos.includes(PROJECTIVY), projectivy: PROJECTIVY });
+    return ctx.resultado({ atual: indefinido ? '' : atual, indefinido, lista, projectivyInstalado: todos.includes(PROJECTIVY), projectivy: PROJECTIVY });
   });
 }
 
@@ -716,13 +735,18 @@ async function resumo(alvo) {
       `Configurações: ${dados.configuracoes.join('; ')}`,
       `Segundo plano restrito: ${dados.segundoPlano.join(', ')}`,
       `Launcher: ${dados.launcher || 'sem mudança'}`,
+      `Apps instalados pelo painel: ${dados.instalados.join(', ') || 'nenhum'}`,
     ].join('\n');
     fs.writeFileSync(path.join(ctx.p.saida, `resumo_${ctx.data}.txt`), txt + '\n');
     return ctx.resultado({ dados });
   });
 }
 
+// funções internas expostas só para os testes
+const _interno = { motivoProtecao, padroesProtegidos, comandoDesfazer, comandoReaplicar, launcherIndefinido };
+
 module.exports = {
+  _interno,
   ErroUsuario, normalizarAlvo, SAIDA,
   info, backup, classificar, desativar,
   launcherStatus, definirLauncher, abrirPlayStore, instalarArquivo, catalogoStatus,

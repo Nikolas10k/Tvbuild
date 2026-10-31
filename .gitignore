@@ -1,3 +1,4 @@
 saida/
 *.apk
 node_modules/
+platform-tools/

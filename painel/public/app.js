@@ -205,6 +205,17 @@ $('#formAparelho').addEventListener('submit', async (ev) => {
   });
 });
 
+$('#formParear').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  await comBotao(ev.submitter, async () => {
+    await api('/api/parear', { metodo: 'POST', corpo: { endereco: $('#pEnd').value.trim(), codigo: $('#pCod').value.trim() } });
+    $('#formParear').reset();
+    toast('Pareado. Agora adicione o aparelho com o IP:porta da tela “Depuração sem fio”.');
+    atividade('Pareamento concluído');
+    $('#fAlvo').focus();
+  });
+});
+
 async function selecionar(alvo) {
   S.alvo = alvo;
   S.selApps.clear(); S.selBg.clear();
@@ -433,7 +444,7 @@ async function abaLauncher(c, forcar = false) {
   c.innerHTML = `
     <div class="cartao">
       <div class="cartao-cab"><h2>Launcher em uso</h2><button class="btn sec peq" id="btnAtLanc">Atualizar</button></div>
-      <p class="mono">${esc(r.atual || 'desconhecido')}</p>
+      ${r.indefinido ? '<div class="nota alerta"><b>Nenhuma tela inicial padrão definida.</b> A TV pergunta qual usar a cada vez que você aperta Início. Por segurança, nenhuma tela inicial pode ser desativada até você escolher uma (botão “Usar este” abaixo).</div>' : `<p class="mono">${esc(r.atual || 'desconhecido')}</p>`}
     </div>
     <div class="cartao">
       <div class="cartao-cab"><h2>1. Projectivy Launcher</h2>${projEmUso ? '<span class="selo bloat">em uso</span>' : ''}</div>

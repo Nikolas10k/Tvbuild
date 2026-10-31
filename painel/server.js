@@ -16,6 +16,7 @@ const controle = require('./lib/controle');
 
 const args = process.argv.slice(2);
 const REDE = args.includes('--rede');
+const ABRIR = args.includes('--abrir');
 const iPorta = args.indexOf('--porta');
 const PORTA = Number(iPorta >= 0 ? args[iPorta + 1] : process.env.PORTA || 7311);
 const HOST = REDE ? '0.0.0.0' : '127.0.0.1';
@@ -164,6 +165,18 @@ async function rotear(req, res) {
       return;
     }
 
+    if (url.pathname === '/api/parear' && req.method === 'POST') {
+      const b = await lerCorpo(req);
+      const end = String(b.endereco || '').trim();
+      const codigo = String(b.codigo || '').trim();
+      if (!/^[A-Za-z0-9.\-]+:\d{2,5}$/.test(end)) throw new ops.ErroUsuario('Informe o IP e a porta de pareamento, como 192.168.0.51:37123.');
+      if (!/^\d{6}$/.test(codigo)) throw new ops.ErroUsuario('O código de pareamento tem 6 números.');
+      const r = await adb.parear(end, codigo);
+      if (!r.ok) throw new ops.ErroUsuario(`O pareamento falhou. Confira o IP, a porta e o código (eles mudam a cada vez que a tela de pareamento é aberta). ${r.mensagem}`.trim());
+      json(res, 200, { ok: true });
+      return;
+    }
+
     const mOp = url.pathname.match(/^\/api\/op\/(\w+)$/);
     if (mOp && req.method === 'POST') {
       const fn = OPERACOES[mOp[1]];
@@ -294,6 +307,14 @@ async function rotear(req, res) {
   }
 }
 
+// Abre o navegador só depois que o servidor está pronto (evita "página não encontrada")
+function abrirNavegador(link) {
+  const { spawn } = require('child_process');
+  const [cmd, argv] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', link]]
+    : process.platform === 'darwin' ? ['open', [link]] : ['xdg-open', [link]];
+  try { spawn(cmd, argv, { stdio: 'ignore', detached: true, windowsHide: true }).on('error', () => {}).unref(); } catch (_) { /* abra manualmente */ }
+}
+
 // ----------------------------------------------------------------------------- início
 const servidor = http.createServer((req, res) => { rotear(req, res); });
 servidor.requestTimeout = 15 * 60 * 1000;
@@ -305,19 +326,21 @@ servidor.on('error', (e) => {
 process.on('SIGINT', () => { controle.fecharTodos(); process.exit(0); });
 process.on('SIGTERM', () => { controle.fecharTodos(); process.exit(0); });
 servidor.listen(PORTA, HOST, async () => {
+  const PORTA_REAL = servidor.address().port;
   const v = await adb.versao();
   console.log('\n  Tvbuild — Painel local');
   console.log('  ----------------------');
-  console.log(`  adb: ${v || 'NÃO ENCONTRADO — instale o Platform Tools (veja o README)'}`);
-  console.log(`  Abra no navegador:  http://localhost:${PORTA}${TOKEN ? '/#t=' + TOKEN : ''}`);
+  console.log(`  adb: ${v ? v + (adb.ADB !== 'adb' ? ' (' + adb.ADB + ')' : '') : 'NÃO ENCONTRADO — instale o Platform Tools (veja o README)'}`);
+  console.log(`  Abra no navegador:  http://localhost:${PORTA_REAL}${TOKEN ? '/#t=' + TOKEN : ''}`);
   if (REDE) {
     const ips = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
     ips.forEach((ip) => {
-      console.log(`  Painel no celular:   http://${ip}:${PORTA}/#t=${TOKEN}`);
-      console.log(`  Controle remoto:     http://${ip}:${PORTA}/controle#t=${TOKEN}`);
+      console.log(`  Painel no celular:   http://${ip}:${PORTA_REAL}/#t=${TOKEN}`);
+      console.log(`  Controle remoto:     http://${ip}:${PORTA_REAL}/controle#t=${TOKEN}`);
     });
     console.log('  Abra o link no celular (mesma rede Wi-Fi). Para trocar o código: --novo-codigo');
   }
-  if (!REDE) console.log(`  Controle remoto:     http://localhost:${PORTA}/controle   (no celular: inicie com --rede)`);
+  if (!REDE) console.log(`  Controle remoto:     http://localhost:${PORTA_REAL}/controle   (no celular: inicie com --rede)`);
   console.log('\n  Para fechar o painel, feche esta janela (ou Ctrl+C).\n');
+  if (ABRIR) abrirNavegador(`http://localhost:${PORTA_REAL}/${TOKEN ? '#t=' + TOKEN : ''}`);
 });

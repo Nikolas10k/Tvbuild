@@ -1,243 +1,208 @@
-# Tvbuild — Otimização segura de TV box e projetor Android via ADB
+# Tvbuild — Otimização segura de TV box e projetor Android
 
-Deixa TV box Android e o projetor **HY300** (Allwinner) mais rápidos, **sem anúncios** e com interface limpa para streaming (YouTube, Netflix, IPTV/Kodi). Tudo roda do seu PC (Windows ou Linux), pela rede, usando ADB.
+Deixa TV box Android e o projetor **HY300** (Allwinner) mais rápidos, **sem anúncios** e com interface limpa para streaming (YouTube, Netflix, IPTV/Kodi). Tudo roda no seu PC (Windows, Linux ou macOS) e fala com a TV pela rede usando ADB, sem root.
 
-Dois jeitos de usar, com as mesmas regras e o mesmo histórico:
-- **Painel (recomendado):** um sistema com interface no navegador que roda no seu PC. Dá para abrir também pelo celular. Veja [Painel](#painel-recomendado).
-- **Linha de comando:** `tvopt.sh` / `tvopt.bat`, para quem prefere terminal. Veja [Linha de comando](#linha-de-comando).
+- **Painel no navegador:** classifica e desativa bloatware, troca o launcher, instala apps sem usar o controle, ajusta o desempenho e desfaz qualquer coisa com um clique.
+- **Controle remoto no celular:** direcional, volume, atalhos dos apps, digitar na TV e ver a tela.
+- **Linha de comando** (`tvopt.sh`) para quem prefere terminal, com as mesmas regras e o mesmo histórico.
 
 > **Regras de segurança do projeto**
 > - Nada de root, flash de firmware ou bootloader.
 > - Só alterações reversíveis: `pm disable-user --user 0` ou `pm uninstall -k --user 0`. Nenhuma partição é apagada.
-> - **Backup antes de qualquer alteração.** O script faz o backup sozinho se você esquecer: `pm list packages -f` mais todas as configurações, num `.txt` com data.
-> - **Nunca são desativados:** o launcher em uso, o teclado, Wi-Fi, Bluetooth, Configurações, SystemUI, GMS/framework, HDMI/CEC, nem keystone/foco do projetor. A lista fica em [`config/protegidos.txt`](config/protegidos.txt) e o script recusa esses pacotes mesmo que você peça.
-> - Pacotes desconhecidos caem na lista **DÚVIDA** e nunca são desativados automaticamente.
-> - Cada comando é **explicado antes de rodar**, e as etapas que alteram algo pedem **confirmação (s/N)**.
-> - Toda alteração é registrada e pode ser desfeita com `desfazer`.
-
-## Estrutura
-
-```
-iniciar-painel.bat / .sh     Abre o painel (dois cliques no Windows)
-painel/                      Painel local: servidor Node.js sem dependências + interface web
-tvopt.sh                     Linha de comando (Linux / macOS / Git Bash no Windows)
-tvopt.bat                    Atalho para Windows (roda o tvopt.sh pelo Git Bash)
-windows/coletar_e_backup.bat Coleta de informações + backup só com Windows (não altera nada)
-config/protegidos.txt        Pacotes que NUNCA são alterados (padrões regex)
-config/bloat_seguro.txt      Bloatware conhecido e seguro de desativar
-config/launchers_anuncio.txt Launchers de fábrica com anúncios (só na etapa 5)
-saida/<ip>/                  Backups, relatórios e scripts gerados (fica fora do git)
-```
+> - **Backup automático antes da primeira alteração:** lista de pacotes (`pm list packages -f`) e todas as configurações, num `.txt` com data.
+> - **Nunca são alterados:** o launcher em uso, o teclado, Wi-Fi, Bluetooth, Configurações, SystemUI, Google Play Services, HDMI/CEC, nem keystone/foco do projetor. A lista fica em [`config/protegidos.txt`](config/protegidos.txt), e o painel recusa esses pacotes mesmo que você peça. Se a TV não tiver uma tela inicial padrão definida, **todas** as telas iniciais ficam protegidas.
+> - Pacotes desconhecidos ficam na lista **Dúvida** e nunca são desativados sem você pedir pelo nome.
+> - Antes de executar, o painel mostra **cada comando com uma explicação** e pede confirmação.
+> - Toda alteração fica registrada e pode ser desfeita, uma por uma ou todas de uma vez.
 
 ---
 
-## Passo 0: preparar o PC
+## Início rápido (Windows)
 
-1. Baixe o **Android SDK Platform-Tools**: https://developer.android.com/tools/releases/platform-tools
-   - **Windows:** extraia em `C:\platform-tools` e coloque essa pasta no PATH (Painel de Controle → Sistema → Variáveis de ambiente → Path → Novo).
-   - **Linux:** `sudo apt install adb` (Debian/Ubuntu) ou `sudo dnf install android-tools` (Fedora).
-2. Para o **painel**: instale o **Node.js LTS** (versão 18 ou mais nova) em https://nodejs.org. No Linux: `sudo apt install nodejs`.
-   Para a **linha de comando no Windows**: instale o **Git for Windows** (https://git-scm.com/download/win).
-3. Baixe este projeto: no GitHub, clique em **Code → Download ZIP** e extraia, ou use o git:
-   ```bash
-   git clone https://github.com/Nikolas10k/Tvbuild.git
-   ```
-4. Confirme que o adb funciona:
-   ```bash
-   adb version
-   ```
+1. Baixe o projeto: no GitHub, **Code → Download ZIP**, e extraia numa pasta.
+2. Na TV, ative a depuração ADB (veja [Ativar o ADB na TV](#ativar-o-adb-na-tv)).
+3. Dê dois cliques em **`iniciar-painel.bat`**.
+   - Se faltar o **Node.js**, ele oferece instalar pelo `winget` (fonte oficial).
+   - Se faltar o **adb**, ele oferece baixar o Platform Tools oficial do Google para a pasta do projeto.
+4. O navegador abre o painel. Adicione a TV pelo IP e aceite **"Permitir depuração?"** na tela da TV.
 
-## Passo 1: ativar Opções do desenvolvedor e Depuração ADB
+Para usar também pelo celular (painel e controle remoto), abra pelo terminal com `iniciar-painel.bat --rede`.
 
-### TV box (Android TV / Google TV / box genérico AOSP)
-
-1. **Configurações → Preferências do dispositivo → Sobre** (em box genérico: **Configurações → Sobre** ou **Sistema → Sobre**).
-2. Vá até **Build / Número da versão** e aperte **OK 7 vezes** no controle até aparecer "Você agora é um desenvolvedor".
-3. Volte e abra **Preferências do dispositivo → Opções do desenvolvedor** (ou **Sistema → Opções do desenvolvedor**).
-4. Ative **Depuração USB**. Se aparecer, ative também **Depuração ADB pela rede** (*Network debugging / ADB over network*).
-5. Descubra o IP em **Configurações → Rede e Internet → (sua rede Wi-Fi) → Endereço IP**.
-6. **Recomendado:** reserve esse IP no roteador (DHCP estático) para ele não mudar.
-
-> Boxes genéricos (MXQ Pro, X96 etc.) muitas vezes já vêm com ADB em rede ligado na porta 5555. Se `adb connect` funcionar logo de cara, não precisa mexer.
-
-### Projetor HY300 (Allwinner)
-
-1. **Configurações** (ícone de engrenagem) → **Sobre / About** → aperte **OK 7 vezes** em **Build number / Versão**.
-2. Volte em **Configurações → Sistema / Opções do desenvolvedor**.
-3. Ative **Depuração USB** e, se existir, **Depuração ADB pela rede**.
-4. Algumas versões do HY300 escondem as configurações do Android atrás do launcher próprio. Nesse caso, abra **Configurações → Mais configurações / Android Settings** para chegar ao menu completo.
-5. O IP fica em **Configurações → Rede → Wi-Fi → (sua rede)**.
-
-### Android 11+ sem "ADB pela rede"
-
-Se só houver **Depuração sem fio** (*Wireless debugging*), ela usa pareamento:
-
-```bash
-adb pair IP:PORTA_DE_PAREAMENTO
-```
-Digite o código mostrado na TV e depois conecte na porta exibida em "Depuração sem fio":
-```bash
-adb connect IP:PORTA
-```
-Nos comandos do `tvopt`, use `IP:PORTA` no lugar do IP.
-
-**Na primeira conexão aparece "Permitir depuração?" na tela.** Marque **"Sempre permitir deste computador"** e confirme.
-
----
-
-## Painel (recomendado)
-
-**Windows:** dê dois cliques em `iniciar-painel.bat`. O navegador abre em `http://localhost:7311`.
-**Linux:**
+**Linux / macOS:**
 ```bash
 bash iniciar-painel.sh
 ```
+Ele usa o `adb` do sistema (`sudo apt install adb`) ou oferece baixar o Platform Tools oficial. Precisa do Node.js 18 ou mais novo (`sudo apt install nodejs`).
 
-Deixe a janela preta aberta enquanto usa o painel; fechar a janela fecha o painel. Não precisa de `npm install`, porque o painel não tem dependências.
+Deixe a janela do painel aberta enquanto usa; fechar a janela fecha o painel. Não precisa de `npm install`: o painel não tem dependências.
 
-### Como funciona
+---
 
-1. **Adicione o aparelho** na lateral (nome, IP e tipo: TV box ou HY300). O painel conecta sozinho. Na primeira vez, aceite **"Permitir depuração?"** na TV.
-2. **Visão geral:** modelo, Android, chip, RAM, armazenamento e o roteiro com o que já foi feito. A primeira leitura grava a RAM "antes".
-3. **Apps:** classifica tudo em *Bloatware seguro / Dúvida / Launchers com anúncio / Seus apps / Essenciais*. Essenciais e seus apps não podem ser marcados. Marque, clique em **Revisar e desativar** e confira a lista de comandos antes de executar. Itens da lista Dúvida exigem marcar "Pesquisei e tenho certeza".
-4. **Launcher:** abre o Projectivy na Play Store da TV ou instala um APK do PC, define como padrão e só então libera desativar o launcher antigo.
-5. **Instalar apps:** instala SmartTube, Kodi, VLC, TV Bro e o próprio Projectivy **sem usar o controle**. O painel busca a versão mais nova na fonte oficial (GitHub do projeto, mirrors.kodi.tv, get.videolan.org), escolhe o arquivo certo para o processador da TV (arm64 / armv7 / x86), baixa no PC e instala pelo ADB, mostrando o progresso. Também aceita um link direto de `.apk` ou um APK que já esteja no PC. Apps que só existem na Play Store (Netflix, X-plore…) abrem direto na página certa na TV, e aí é só apertar **Instalar** no controle. A lista fica em [`config/catalogo_apps.json`](config/catalogo_apps.json).
-6. **Desempenho:** animações 0.5x, bloquear apps que rodam sozinhos, limpar cache e liberar RAM.
-7. **Projetor HY300** (só para aparelhos do tipo HY300): resolução real, keystone/foco e firmware, com botão para abrir o app de atualização oficial.
-8. **Histórico e desfazer:** RAM antes/agora, cada alteração (inclusive apps instalados pelo painel) com botão **Desfazer** individual, **Desfazer tudo**, **Gerar scripts reaplicar/desfazer** (.bat e .sh) e download de backups e relatórios.
+## Ativar o ADB na TV
 
-### Controle remoto no celular
+### TV box (Android TV / Google TV / box genérico)
 
-Inicie o painel com `--rede` (`iniciar-painel.bat --rede`). A janela mostra o link **Controle remoto** (`http://IP-do-PC:7311/controle#t=código`): abra no celular, na mesma rede Wi-Fi, e use **"Adicionar à tela inicial"** para ele virar um ícone de app. O código de acesso fica salvo entre reinícios, para o atalho continuar funcionando. Para trocar o código, use `--novo-codigo`. No painel, o botão **Controle remoto** ao lado do nome do aparelho abre o mesmo controle no PC.
+1. **Configurações → Preferências do dispositivo → Sobre** (em box genérico: **Configurações → Sobre** ou **Sistema → Sobre**).
+2. Vá até **Build / Número da versão** e aperte **OK 7 vezes** até aparecer "Você agora é um desenvolvedor".
+3. Abra **Opções do desenvolvedor** e ative **Depuração USB** e, se existir, **Depuração ADB pela rede** (*Network debugging*).
+4. Veja o IP em **Configurações → Rede e Internet → (sua rede Wi-Fi)**.
+5. **Recomendado:** reserve esse IP no roteador (DHCP estático) para ele não mudar.
+
+> Boxes genéricos (MXQ Pro, X96 etc.) muitas vezes já vêm com ADB em rede ligado na porta 5555.
+
+### Projetor HY300 (Allwinner)
+
+1. **Configurações → Sobre / About** → aperte **OK 7 vezes** em **Build number / Versão**.
+2. **Configurações → Sistema → Opções do desenvolvedor** → ative **Depuração USB** e, se existir, **Depuração ADB pela rede**.
+3. Algumas versões escondem as configurações do Android atrás do launcher próprio: procure **Mais configurações / Android Settings**.
+4. O IP fica em **Configurações → Rede → Wi-Fi → (sua rede)**.
+
+### Android 11+ só com "Depuração sem fio"
+
+Se a TV só tiver **Depuração sem fio** (*Wireless debugging*), ela pede pareamento:
+
+1. Na TV: **Depuração sem fio → Parear com código**. Anote o **IP:porta** e o **código de 6 números**.
+2. No painel, na lateral: **Android 11+: parear com código**. Preencha e clique em **Parear**.
+3. Adicione o aparelho com o **IP:porta da tela principal de "Depuração sem fio"**, que é outra porta.
+
+Essa porta muda quando a TV reinicia. Se a conexão falhar depois de reiniciar, remova o aparelho e adicione com a porta nova.
+
+---
+
+## Painel
+
+| Aba | O que faz |
+|---|---|
+| **Visão geral** | Modelo, Android, chip, RAM, armazenamento e um roteiro do que já foi feito. A primeira leitura grava a RAM "antes". |
+| **Apps** | Classifica tudo em *Bloatware seguro / Dúvida / Launchers com anúncio / Seus apps / Essenciais*. Marque, clique em **Revisar e desativar** e confira os comandos. Itens da lista Dúvida exigem marcar "Pesquisei e tenho certeza". |
+| **Launcher** | Instala o **Projectivy Launcher**, define como padrão e só então libera desativar o launcher antigo com anúncios. |
+| **Instalar apps** | Instala SmartTube, Kodi, VLC, TV Bro e Projectivy **sem usar o controle**: busca a versão mais nova na fonte oficial, escolhe o arquivo certo para o processador da TV (arm64/armv7/x86), baixa no PC e instala, com barra de progresso. Também aceita link direto de `.apk` ou um APK do PC. Apps só da Play Store (Netflix, X-plore…) abrem na página certa na TV. |
+| **Desempenho** | Animações 0.5x, bloquear apps que rodam sozinhos, limpar cache e liberar RAM. |
+| **Projetor HY300** | Resolução real, keystone/foco e firmware, com botão para abrir o app de atualização oficial. Só aparece para aparelhos do tipo HY300. |
+| **Histórico e desfazer** | RAM antes/agora, cada alteração com **Desfazer**, **Desfazer tudo**, **Gerar scripts reaplicar/desfazer** (.bat e .sh) e download de backups e relatórios. |
+
+A barra **Atividade**, no rodapé, mostra cada comando executado e a resposta da TV.
+
+### Detalhes das etapas
+
+- **Desativar:** `pm disable-user --user 0 <pacote>` esconde e para o app; volta com `pm enable`. A opção **Remover para o usuário** usa `pm uninstall -k --user 0`: o APK continua no sistema e volta com `cmd package install-existing`.
+- **Launcher:** usa `cmd package set-home-activity`. Se o seu Android não aceitar, aperte Início no controle, escolha Projectivy e depois **"Sempre"**. No **Google TV**, antes de desativar o launcher do Google, ative no Projectivy **Configurações → "Substituir botão Home"**.
+- **Apps que iniciam sozinhos:** `cmd appops set <app> RUN_IN_BACKGROUND ignore` (Android 8+). O app abre normalmente, só não fica rodando escondido. Não use em apps de IPTV que gravam programas.
+- **Limite de processos em segundo plano:** não é confiável por ADB e volta ao padrão a cada reinício. Se quiser, configure em *Opções do desenvolvedor → Limite de processos em segundo plano*. Só vale em aparelhos com 1 a 2 GB de RAM.
+- **HY300:** o painel do projetor é **1280×720 nativo**, mesmo que a caixa diga "4K". Não altere `wm size`. Keystone digital forte reduz a nitidez: prefira alinhar o projetor fisicamente. Firmware só da fonte oficial; este projeto nunca instala firmware.
+- **Instalar apps:** só aceita links `https`, limita o tamanho a 600 MB e confere se o arquivo é mesmo um APK. Os apps instalados entram no histórico e podem ser desinstalados pelo Desfazer. O catálogo fica em [`config/catalogo_apps.json`](config/catalogo_apps.json).
+
+---
+
+## Controle remoto no celular
+
+Abra o painel com `--rede` (`iniciar-painel.bat --rede` ou `bash iniciar-painel.sh --rede`). A janela mostra dois links com código de acesso:
+
+```
+Painel no celular:   http://192.168.0.10:7311/#t=código
+Controle remoto:     http://192.168.0.10:7311/controle#t=código
+```
+
+Abra o link do controle no celular, na mesma rede Wi-Fi, e use **"Adicionar à tela inicial"** para ele virar um ícone de app. O código fica salvo entre reinícios, para o atalho continuar funcionando. Para gerar outro (e invalidar o antigo), use `--novo-codigo`. No PC, o botão **Controle remoto** ao lado do nome do aparelho abre o mesmo controle.
 
 - **Direcional + OK, Voltar, Início, Menu, volume, mudo e mídia.** Segure as setas e o volume para repetir.
-- **Atalhos dos apps** instalados (SmartTube, Netflix, Kodi…) e Configurações.
+- **Atalhos** dos apps instalados (SmartTube, Netflix, Kodi…) e Configurações.
 - **Touchpad:** deslize para mover a seleção e toque para OK.
 - **Digitar:** escreva no celular e o texto aparece na TV (senhas, buscas). Acentos e emojis não passam pelo ADB: “ção” vira “cao”.
-- **Ver tela:** um print da TV a cada 2 segundos. Toque na imagem para tocar naquele ponto da TV. Apps com proteção (Netflix, por exemplo) aparecem pretos.
+- **Ver tela:** um print da TV a cada 2 segundos. Toque na imagem para tocar naquele ponto. Apps com proteção (Netflix, por exemplo) aparecem pretos.
 - **Ligar/desligar** a tela (precisa de dois toques).
 - No PC, as setas, Enter, Backspace, + e − do teclado também controlam a TV.
 
-Os comandos levam de 0,1 a 0,3 s para chegar, porque passam pelo ADB. Isso é ótimo para navegar, mas não serve para jogar: para emuladores, pareie um controle Bluetooth (PS4/PS5/Xbox) direto na TV box.
+Os comandos levam de 0,1 a 0,3 s para chegar. É ótimo para navegar, mas não para jogar: para jogos, pareie um controle Bluetooth direto na TV.
 
-A barra **Atividade**, no rodapé, mostra cada comando executado e a resposta do aparelho.
-
-### Usar pelo celular
-
-```bash
-bash iniciar-painel.sh --rede
-```
-No Windows: `iniciar-painel.bat --rede`. A janela mostra um link como `http://192.168.0.10:7311/#t=código`: abra esse link no celular, na mesma rede Wi-Fi. O código muda a cada vez que o painel é iniciado. Sem ele, ninguém na rede consegue usar o painel. Se o Windows perguntar sobre o firewall, permita só em **redes privadas**.
-
-### Segurança do painel
-
-- Por padrão, só aceita conexões do próprio PC (`127.0.0.1`). Com `--rede`, exige o código de acesso, salvo em `saida/.codigo_acesso`.
-- O controle só envia teclas de uma lista fixa (setas, OK, volume…); nenhum comando livre chega à TV.
-- Recusa pedidos de outros sites abertos no navegador (cabeçalho obrigatório e checagem de host).
-- Valida nomes de pacote e IP antes de mandar qualquer coisa ao aparelho, e nada passa pelo shell do PC.
-- Usa as mesmas listas de `config/` e o mesmo registro `saida/<ip>/estado/alteracoes.log` do `tvopt.sh`: o que você fizer no painel pode ser desfeito pela linha de comando e vice-versa.
-- Não dá para hospedar o painel no Vercel ou em outro servidor na internet: ele precisa estar na mesma rede dos aparelhos para falar com eles pelo ADB.
+Se o Windows perguntar sobre o firewall ao usar `--rede`, permita só em **redes privadas**.
 
 ---
 
 ## Linha de comando
 
-Linux: `./tvopt.sh <IP> <comando>` (se baixou o ZIP, rode antes `chmod +x tvopt.sh`) · Windows: `tvopt.bat <IP> <comando>`
-
-Exemplos com a TV box em `192.168.0.50` e o HY300 em `192.168.0.51`:
+Linux/macOS: `./tvopt.sh <IP> <comando>` (se baixou o ZIP, rode antes `chmod +x tvopt.sh`). Windows: `tvopt.bat <IP> <comando>` (precisa do Git for Windows).
 
 | Etapa | Comando | Altera algo? |
 |---|---|---|
-| 2. Info (modelo, Android, chip, RAM, armazenamento) | `./tvopt.sh 192.168.0.50 info` | Não |
-| Backup (pacotes + configurações) | `./tvopt.sh 192.168.0.50 backup` | Não |
-| 3. Classificar apps | `./tvopt.sh 192.168.0.50 classificar` | Não |
-| 4. Desativar bloatware | `./tvopt.sh 192.168.0.50 desativar` | **Sim, com confirmação** |
-| 4b. Desativar item da lista DÚVIDA (após pesquisar) | `./tvopt.sh 192.168.0.50 desativar com.exemplo.app` | **Sim, com confirmação** |
-| 5. Launcher leve (Projectivy) | `./tvopt.sh 192.168.0.50 launcher` | **Sim, com confirmação** |
-| Instalar APKs (SmartTube, Kodi...) | `./tvopt.sh 192.168.0.50 instalar SmartTube.apk` | Sim |
-| 6. Desempenho | `./tvopt.sh 192.168.0.50 desempenho` | **Sim, com confirmação** |
-| 7. Diagnóstico HY300 | `./tvopt.sh 192.168.0.51 hy300` | Não (só abre o app de atualização se você pedir) |
-| 8. Gerar scripts reaplicar/desfazer | `./tvopt.sh 192.168.0.50 gerar-scripts` | Não |
+| Informações | `./tvopt.sh 192.168.0.50 info` | Não |
+| Backup | `./tvopt.sh 192.168.0.50 backup` | Não |
+| Classificar apps | `./tvopt.sh 192.168.0.50 classificar` | Não |
+| Desativar bloatware | `./tvopt.sh 192.168.0.50 desativar` | **Sim, com confirmação** |
+| Desativar item da lista Dúvida | `./tvopt.sh 192.168.0.50 desativar com.exemplo.app` | **Sim, com confirmação** |
+| Launcher leve | `./tvopt.sh 192.168.0.50 launcher` | **Sim, com confirmação** |
+| Instalar APKs | `./tvopt.sh 192.168.0.50 instalar SmartTube.apk` | Sim |
+| Desempenho | `./tvopt.sh 192.168.0.50 desempenho` | **Sim, com confirmação** |
+| Diagnóstico HY300 | `./tvopt.sh 192.168.0.51 hy300` | Não |
+| Gerar scripts reaplicar/desfazer | `./tvopt.sh 192.168.0.50 gerar-scripts` | Não |
 | Desfazer tudo | `./tvopt.sh 192.168.0.50 desfazer` | Sim (reverte) |
-| 9. Resumo (RAM antes/depois) | `./tvopt.sh 192.168.0.50 resumo` | Não |
+| Resumo (RAM antes/depois) | `./tvopt.sh 192.168.0.50 resumo` | Não |
 | Fluxo guiado completo | `./tvopt.sh 192.168.0.50 tudo` | Pergunta a cada etapa |
 
-**Teste sem alterar nada:** antes de qualquer etapa, rode em modo simulação, que só mostra os comandos:
+Para ver o que seria feito sem alterar nada:
 
 ```bash
 SIMULAR=1 ./tvopt.sh 192.168.0.50 desativar
 ```
 
-### Fluxo recomendado (por aparelho)
-
-1. `info`: a primeira execução grava a **RAM disponível "antes"**. Reinicie o aparelho e espere 2 minutos antes, para a medição ser justa.
-2. `backup`
-3. `classificar`: revise o arquivo `saida/<ip>/classificacao_<data>.txt`. **Pesquise cada item da lista DÚVIDA** (ou pergunte) antes de desativar.
-4. `desativar`: mostra os candidatos e pergunta: **[t]odos / [u]m por um / [n]ão**.
-5. `launcher`: instala/define o Projectivy e só **depois** oferece desativar o launcher antigo com anúncios, conferindo antes se o novo launcher realmente está em uso.
-6. `desempenho`
-7. `hy300` (só no projetor)
-8. `gerar-scripts`: cria `reaplicar_<ip>.sh/.bat` e `desfazer_<ip>.sh/.bat` em `saida/<ip>/`, com exatamente o que foi feito naquele aparelho. Os `.bat` rodam no Windows sem Git Bash.
-9. Reinicie, espere 2 minutos e rode `resumo`.
+`windows/coletar_e_backup.bat` faz só a coleta de informações e o backup, sem Git Bash e sem alterar nada.
 
 ---
 
-## O que cada etapa faz
+## Desfazer
 
-### 3. Classificação
-- **Essencial/protegido:** casa com [`config/protegidos.txt`](config/protegidos.txt), ou é o launcher/teclado em uso. Nunca é alterado.
-- **Bloatware seguro:** está em [`config/bloat_seguro.txt`](config/bloat_seguro.txt) (agenda, e-mail, impressão, papéis de parede animados, recomendações/anúncios do Google, Adups FOTA, Facebook pré-instalado...).
-- **Launcher com anúncio:** está em [`config/launchers_anuncio.txt`](config/launchers_anuncio.txt). Só é tratado na etapa 5.
-- **Seus apps:** instalados por você. Não mexemos.
-- **Dúvida:** qualquer outro app de sistema. Só é desativado se você pedir explicitamente pelo nome.
+- **Painel:** aba **Histórico e desfazer**, item por item ou tudo.
+- **Linha de comando:** `./tvopt.sh <IP> desfazer`.
+- **Sem o projeto à mão:** use o `desfazer_<ip>.bat` ou `.sh` gerado em `saida/<ip>/`.
+- **Último recurso:** **Configurações → Restaurar padrões de fábrica** volta tudo, porque nada foi apagado do sistema.
 
-### 4. Desativação
-- Padrão: `pm disable-user --user 0 <pacote>`, que esconde e para o app. Reverte com `pm enable --user 0 <pacote>`.
-- Com `--remover`: `pm uninstall -k --user 0 <pacote>` remove o app só para o usuário, mas o APK continua no sistema. Reverte com `cmd package install-existing <pacote>`.
-
-### 5. Launcher e apps sugeridos
-- **Projectivy Launcher** (`com.spocky.projengmenu`): leve, sem anúncios, ótimo para controle remoto. O script abre a página na Play Store da TV ou instala um APK que você baixou (`launcher caminho.apk`).
-- Define o padrão com `cmd package set-home-activity`. Se o seu Android não aceitar, aperte HOME no controle, escolha Projectivy e depois **"Sempre"**.
-- **Google TV:** antes de desativar o launcher do Google, ative no Projectivy **Configurações → "Substituir botão Home"** (usa acessibilidade).
-- Apps sugeridos:
-  - **SmartTube**: YouTube sem anúncios, com SponsorBlock. APK oficial em https://smarttubeapp.github.io
-  - **Kodi**: mídia local, IPTV (PVR IPTV Simple Client) e add-ons. Pela Play Store ou https://kodi.tv
-  - **TV Bro**: navegador leve feito para controle remoto.
-  - **X-plore File Manager**: gerenciador de arquivos com acesso à rede (SMB).
-  - **Send Files to TV**: envia APKs do celular para a TV.
-- Netflix: use o app que veio com o aparelho ou o da Play Store. O app de celular não funciona bem na TV.
-
-### 6. Desempenho
-- **Animações em 0.5x** (`settings put global window_animation_scale|transition_animation_scale|animator_duration_scale 0.5`). O valor original fica registrado para o desfazer.
-- **Apps que iniciam sozinhos:** para cada app instalado por você, pergunta se deve bloquear o segundo plano (`cmd appops set <app> RUN_IN_BACKGROUND ignore`, Android 8+). O app continua abrindo normalmente, só não fica rodando escondido.
-- **Limpar cache:** `pm trim-caches 999G`, que não apaga logins nem dados.
-- **Limite de processos em segundo plano:** **não é confiável por ADB** e volta ao padrão a cada reinício. Para usar, configure manualmente em *Opções do desenvolvedor → Limite de processos em segundo plano → "No máximo 2"*. Só vale a pena em aparelhos com 1 a 2 GB de RAM.
-- `am kill-all`: encerra processos em cache agora. É temporário.
-
-### 7. HY300
-- **Resolução real:** o painel do HY300 é **1280×720 nativo**, mesmo que a caixa diga "4K". O relatório mostra o que o Android desenha (`wm size`) e os modos do driver. **Não altere `wm size`.**
-- **Keystone/foco:** lista os apps e configurações de correção (todos protegidos). Dica: keystone digital forte reduz a nitidez. Prefira alinhar o projetor fisicamente e usar o mínimo de correção.
-- **Atualização:** mostra a versão do firmware e os apps de atualização encontrados, e pode abrir o app oficial na tela. **Firmware só da fonte oficial; este projeto nunca instala firmware.**
-
-### 8. Desfazer
-- `./tvopt.sh <IP> desfazer` reverte tudo do registro `saida/<ip>/estado/alteracoes.log`, em ordem inversa: reativa apps, reinstala os removidos, restaura configurações, permissões de segundo plano e o launcher original.
-- Sem o PC com o projeto? Use o `desfazer_<ip>.bat` ou `.sh` gerado na etapa 8.
-- Último recurso, se algo der muito errado: **Configurações → Restaurar padrões de fábrica** volta tudo, porque nada foi apagado do sistema.
+Painel e linha de comando usam o mesmo registro (`saida/<ip>/estado/alteracoes.log`): o que um faz, o outro desfaz.
 
 ---
+
+## Estrutura
+
+```
+iniciar-painel.bat / .sh      Abre o painel (instala Node.js/adb se faltar)
+painel/server.js              Servidor local (Node.js, sem dependências)
+painel/lib/                   ADB, operações, catálogo de apps e controle remoto
+painel/public/                Interface do painel e do controle remoto
+config/protegidos.txt         Pacotes que NUNCA são alterados (padrões regex)
+config/bloat_seguro.txt       Bloatware conhecido e seguro de desativar
+config/launchers_anuncio.txt  Launchers de fábrica com anúncios
+config/catalogo_apps.json     Apps da aba "Instalar apps" (só fontes oficiais)
+tvopt.sh / tvopt.bat          Linha de comando
+windows/coletar_e_backup.bat  Informações + backup só com Windows
+test/                         Testes automáticos (npm test)
+saida/<ip>/                   Backups, relatórios e scripts gerados (fora do git)
+platform-tools/               adb baixado pelo iniciar-painel (fora do git)
+```
 
 ## Personalizar
 
-- Adicionar bloatware que você confirmou: inclua uma linha em `config/bloat_seguro.txt` no formato `pacote  # descrição`.
-- Proteger mais coisas: inclua um padrão regex em `config/protegidos.txt`.
-- `SIM=1` aceita todas as confirmações automaticamente (use só quando já souber o que vai acontecer, por exemplo para reaplicar num aparelho igual).
+- **Bloatware que você confirmou:** acrescente `pacote  # descrição` em `config/bloat_seguro.txt`.
+- **Proteger mais coisas:** acrescente um padrão regex em `config/protegidos.txt`.
+- **Outro app no catálogo:** acrescente uma entrada em `config/catalogo_apps.json` com a fonte oficial.
+- **Outra porta:** `iniciar-painel.bat --porta 8080`.
 
 ## Solução de problemas
 
 | Problema | Solução |
 |---|---|
-| `unauthorized` | Aceite o aviso "Permitir depuração" na TV. Se não aparecer: `adb kill-server`, desligue e ligue a depuração e tente de novo. |
-| `failed to connect` / `connection refused` | Confira o IP, se PC e TV estão na mesma rede e se a depuração em rede está ativa. No Android 11+ use o pareamento (veja acima). |
-| A conexão cai após reiniciar a TV | Normal em alguns aparelhos: rode o comando de novo e o script reconecta. |
-| Um app sumiu e faz falta | `./tvopt.sh <IP> desfazer` ou `adb shell pm enable --user 0 <pacote>`. |
-| Tela inicial preta depois de desativar o launcher | Rode o `desfazer`. Se não tiver o PC à mão, use o controle: **Configurações → Apps → mostrar apps do sistema → (launcher) → Ativar**. |
+| **"Aceite Permitir depuração"** / `unauthorized` | Aceite o aviso na TV, marcando "Sempre permitir". Se não aparecer, desligue e ligue a depuração na TV e tente de novo. |
+| **Não conecta** | Confira o IP, se o PC e a TV estão na mesma rede e se a depuração em rede está ativa. No Android 11+, use o pareamento. |
+| **Conectava e parou depois de reiniciar a TV** | Com "Depuração sem fio" a porta muda a cada reinício: adicione o aparelho com a porta nova. |
+| **"adb não encontrado"** | Rode o `iniciar-painel.bat` e aceite baixar o Platform Tools, ou instale manualmente (https://developer.android.com/tools/releases/platform-tools). |
+| **"A porta 7311 já está em uso"** | O painel já está aberto em outra janela. Use essa, ou inicie com `--porta 8080`. |
+| **O celular não abre o painel** | Inicie com `--rede`, use o link com código mostrado na janela e permita o Node.js no firewall do Windows (redes privadas). |
+| **A instalação de um app falhou** | A mensagem explica o motivo (Android antigo, falta de espaço, versão da Play Store já instalada…). Detalhes na barra Atividade. |
+| **Um app sumiu e faz falta** | Aba Histórico → Desfazer no item. |
+| **Tela inicial preta** | Histórico → Desfazer tudo. Sem o PC: **Configurações → Apps → mostrar apps do sistema → (launcher) → Ativar**. |
+
+## Desenvolvimento
+
+```bash
+npm test
+```
+
+Os testes usam um adb simulado (`test/adb-simulado.js`) e cobrem as regras de proteção, o desfazer, o modo rede, o controle remoto e a escolha de APK por processador. Eles rodam no GitHub Actions a cada envio.

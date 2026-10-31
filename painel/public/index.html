@@ -24,7 +24,7 @@
         <label for="fNome">Nome</label>
         <input id="fNome" placeholder="ex.: TV box da sala" maxlength="40">
         <label for="fAlvo">IP do aparelho</label>
-        <input id="fAlvo" placeholder="192.168.0.50" required inputmode="decimal">
+        <input id="fAlvo" placeholder="192.168.0.50 ou 192.168.0.50:5555" required inputmode="url" autocapitalize="off" spellcheck="false">
         <label for="fTipo">Tipo</label>
         <select id="fTipo">
           <option value="box">TV box / Android TV</option>
@@ -32,6 +32,18 @@
         </select>
         <button type="submit" class="btn">Adicionar aparelho</button>
       </form>
+      <details class="ajuda-adb" id="detPair">
+        <summary>Android 11+: parear com código</summary>
+        <form id="formParear" class="form-aparelho" autocomplete="off" style="border-top:none;padding-top:8px">
+          <p>Na TV: Opções do desenvolvedor → <b>Depuração sem fio</b> → <b>Parear com código</b>. Use o IP:porta e o código que aparecem nessa tela.</p>
+          <label for="pEnd">IP:porta de pareamento</label>
+          <input id="pEnd" placeholder="192.168.0.51:37123" required inputmode="url">
+          <label for="pCod">Código de 6 números</label>
+          <input id="pCod" placeholder="123456" required inputmode="numeric" maxlength="6" pattern="\d{6}">
+          <button type="submit" class="btn sec">Parear</button>
+          <p>Depois, adicione o aparelho acima com o <b>IP:porta</b> mostrado na tela principal de “Depuração sem fio” (é outra porta).</p>
+        </form>
+      </details>
       <details class="ajuda-adb">
         <summary>Como ativar o ADB no aparelho</summary>
         <ol>

@@ -1,10 +1,28 @@
 #!/usr/bin/env bash
 # Tvbuild: inicia o painel local e abre o navegador.
-# Para abrir também pelo celular na mesma rede:  ./iniciar-painel.sh --rede
+#   bash iniciar-painel.sh           só neste PC
+#   bash iniciar-painel.sh --rede    também pelo celular (painel e controle remoto)
 cd "$(dirname "$0")" || exit 1
-command -v node >/dev/null || { echo "[ERRO] Node.js não encontrado. Instale: https://nodejs.org (ou: sudo apt install nodejs)"; exit 1; }
-command -v adb  >/dev/null || echo "[AVISO] adb não encontrado: o painel abre, mas não conecta nos aparelhos (sudo apt install adb)."
-if [ "${1:-}" != "--rede" ]; then
-  ( sleep 1; xdg-open "http://localhost:7311" >/dev/null 2>&1 || open "http://localhost:7311" >/dev/null 2>&1 ) &
+
+if ! command -v node >/dev/null; then
+  echo "[ERRO] Node.js não encontrado. Instale a versão 18 ou mais nova: https://nodejs.org (ou: sudo apt install nodejs)"
+  exit 1
 fi
-exec node painel/server.js "$@"
+
+[ -x platform-tools/adb ] && export PATH="$PWD/platform-tools:$PATH"
+if ! command -v adb >/dev/null; then
+  echo "[!] adb (Android Platform Tools) não encontrado."
+  if command -v unzip >/dev/null && command -v curl >/dev/null; then
+    read -r -p "    Baixar o Platform Tools oficial do Google para a pasta do projeto? [s/N] " r
+    if [[ "$r" =~ ^[sSyY] ]]; then
+      so="linux"; [ "$(uname)" = "Darwin" ] && so="darwin"
+      tmp="$(mktemp)"
+      curl -fsSL "https://dl.google.com/android/repository/platform-tools-latest-$so.zip" -o "$tmp" && unzip -qo "$tmp" -d . && rm -f "$tmp"
+      [ -x platform-tools/adb ] && export PATH="$PWD/platform-tools:$PATH" && echo "[ok] adb instalado em $PWD/platform-tools"
+    fi
+  else
+    echo "    Instale com: sudo apt install adb   (ou sudo dnf install android-tools)"
+  fi
+fi
+
+exec node painel/server.js --abrir "$@"

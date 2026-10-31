@@ -4,8 +4,27 @@
 // - No aparelho, "adb shell" junta os argumentos numa linha de comando; por isso todo argumento
 //   é colocado entre aspas simples (q()) antes de ir para o shell remoto.
 const { execFile } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-const ADB = process.env.ADB || 'adb';
+// Procura o adb: variável ADB, pasta platform-tools do projeto, SDK do Android Studio, e por fim o PATH.
+function acharAdb() {
+  if (process.env.ADB) return process.env.ADB;
+  const exe = process.platform === 'win32' ? 'adb.exe' : 'adb';
+  const raiz = path.resolve(__dirname, '..', '..');
+  const casa = os.homedir();
+  const locais = [
+    path.join(raiz, 'platform-tools', exe),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Android', 'Sdk', 'platform-tools', exe),
+    process.platform === 'win32' && 'C:\\platform-tools\\adb.exe',
+    path.join(casa, 'Library', 'Android', 'sdk', 'platform-tools', exe),
+    path.join(casa, 'Android', 'Sdk', 'platform-tools', exe),
+  ].filter(Boolean);
+  return locais.find((p) => { try { return fs.statSync(p).isFile(); } catch (_) { return false; } }) || 'adb';
+}
+
+const ADB = acharAdb();
 
 function q(s) {
   return "'" + String(s).replace(/'/g, "'\\''") + "'";
@@ -53,8 +72,15 @@ async function conectar(alvo) {
   return { ok: estado === 'device', estado: estado || 'offline', mensagem: (r.out + r.err).trim() };
 }
 
+// Pareamento da "Depuração sem fio" (Android 11+): adb pair IP:PORTA CÓDIGO
+async function parear(enderecoPareamento, codigo) {
+  const r = await run(['pair', enderecoPareamento, codigo], { timeout: 30000 });
+  const msg = (r.out + r.err).trim();
+  return { ok: r.code === 0 && /Successfully paired/i.test(msg), mensagem: msg };
+}
+
 function desconectar(alvo) {
   return run(['disconnect', alvo], { timeout: 10000 });
 }
 
-module.exports = { ADB, run, shell, versao, dispositivos, conectar, desconectar, q };
+module.exports = { ADB, run, shell, versao, dispositivos, conectar, parear, desconectar, q };

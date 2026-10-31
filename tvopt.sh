@@ -50,6 +50,8 @@ confirmar() { # confirmar "pergunta"  -> 0 = sim
 ALVO=""; SAIDA=""; ESTADO=""; LOG=""
 
 preparar_alvo() {
+  [ -x "$RAIZ/platform-tools/adb" ] && export PATH="$RAIZ/platform-tools:$PATH"
+  [ -x "$RAIZ/platform-tools/adb.exe" ] && export PATH="$RAIZ/platform-tools:$PATH"
   command -v adb >/dev/null 2>&1 || morrer "adb não encontrado. Instale o Android Platform Tools (veja o README)."
   ALVO="$1"
   [[ "$ALVO" == *:* ]] || ALVO="$ALVO:5555"
@@ -124,17 +126,24 @@ padroes_protegidos() { grep -vE '^[[:space:]]*(#|$)' "$CONFIG/protegidos.txt"; }
 lista_config()       { sed 's/#.*//' "$CONFIG/$1" | awk 'NF {print $1}'; }
 descricao_config()   { grep -E "^$(printf '%s' "$2" | sed 's/\./\\./g')[[:space:]]" "$CONFIG/$1" | sed -n 's/.*#[[:space:]]*//p' | head -n1; }
 
-PROT_LAUNCHER=""; PROT_TECLADO=""; PROT_REGEX=""
+PROT_LAUNCHER=""; PROT_LAUNCHERS=""; PROT_TECLADO=""; PROT_REGEX=""
 carregar_protecao_dinamica() {
   PROT_REGEX="$(padroes_protegidos | paste -sd'|' -)"
   PROT_LAUNCHER="$(pacote_launcher_atual)"
   PROT_TECLADO="$(teclado_atual)"
+  # Sem tela inicial padrão o Android responde com o seletor do sistema ("android"):
+  # nesse caso, todas as telas iniciais ficam protegidas.
+  PROT_LAUNCHERS=""
+  if [ -z "$PROT_LAUNCHER" ] || [ "$PROT_LAUNCHER" = "android" ]; then
+    PROT_LAUNCHERS=" $(launchers_disponiveis | cut -d/ -f1 | sort -u | tr '\n' ' ') "
+  fi
 }
 
 # protegido <pacote> [ignorar_padroes] -> 0 se NÃO pode mexer; imprime motivo
 protegido() {
   local p="$1" ignorar="${2:-0}"
   if [ -n "$PROT_LAUNCHER" ] && [ "$p" = "$PROT_LAUNCHER" ]; then echo "launcher em uso"; return 0; fi
+  if [[ "$PROT_LAUNCHERS" == *" $p "* ]]; then echo "pode ser o launcher em uso (nenhuma tela inicial padrão)"; return 0; fi
   if [ -n "$PROT_TECLADO" ] && [ "$p" = "$PROT_TECLADO" ]; then echo "teclado em uso"; return 0; fi
   [ "$ignorar" = "1" ] && return 1
   [ -n "$PROT_REGEX" ] || PROT_REGEX="$(padroes_protegidos | paste -sd'|' -)"

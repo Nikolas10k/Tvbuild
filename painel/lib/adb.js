@@ -72,6 +72,31 @@ async function conectar(alvo) {
   return { ok: estado === 'device', estado: estado || 'offline', mensagem: (r.out + r.err).trim() };
 }
 
+// Quando a conexão falha, testa a porta direto para explicar o motivo em português
+function testarPorta(alvo, tempo = 3000) {
+  const net = require('net');
+  const [host, porta] = alvo.split(':');
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    let feito = false;
+    const fim = (r) => { if (!feito) { feito = true; sock.destroy(); resolve(r); } };
+    sock.setTimeout(tempo);
+    sock.once('connect', () => fim('aberta'));
+    sock.once('timeout', () => fim('sem_resposta'));
+    sock.once('error', (e) => fim(e.code === 'ECONNREFUSED' ? 'recusada' : 'sem_resposta'));
+    sock.connect(Number(porta) || 5555, host);
+  });
+}
+
+async function explicarFalha(alvo, estado) {
+  if (estado === 'unauthorized') return 'A TV ainda não autorizou este PC. Aceite o aviso “Permitir depuração?” na tela da TV (marque “Sempre permitir”) e clique em Tentar de novo.';
+  const [ip, porta] = alvo.split(':');
+  const t = await testarPorta(alvo);
+  if (t === 'recusada') return `A TV respondeu em ${ip}, mas o ADB pela rede está desligado (porta ${porta} fechada). Nas Opções do desenvolvedor, ative “Depuração ADB pela rede” / “ADB over network”. Se só existir “Depuração USB”, veja a dica no README.`;
+  if (t === 'aberta') return `A porta ${porta} de ${ip} está aberta, mas o ADB não aceitou a conexão. Desligue e ligue a depuração na TV e tente de novo.`;
+  return `Nenhum aparelho respondeu em ${ip}. Confira o IP na TV (Configurações → Rede) e se o PC e a TV estão no mesmo roteador.`;
+}
+
 // Pareamento da "Depuração sem fio" (Android 11+): adb pair IP:PORTA CÓDIGO
 async function parear(enderecoPareamento, codigo) {
   const r = await run(['pair', enderecoPareamento, codigo], { timeout: 30000 });
@@ -83,4 +108,4 @@ function desconectar(alvo) {
   return run(['disconnect', alvo], { timeout: 10000 });
 }
 
-module.exports = { ADB, run, shell, versao, dispositivos, conectar, parear, desconectar, q };
+module.exports = { ADB, run, shell, versao, dispositivos, conectar, parear, desconectar, explicarFalha, testarPorta, q };

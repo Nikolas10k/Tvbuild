@@ -133,7 +133,7 @@ async function ctxConectado(alvo, simular) {
   const c = await adb.conectar(alvo);
   if (!c.ok) {
     if (c.estado === 'unauthorized') throw new ErroUsuario('O aparelho ainda não autorizou este PC. Aceite o aviso "Permitir depuração?" na tela e tente de novo.');
-    throw new ErroUsuario(`Não foi possível conectar em ${alvo}. Confira o IP, a rede e se a depuração ADB em rede está ativa. ${c.mensagem || ''}`.trim());
+    throw new ErroUsuario(await adb.explicarFalha(alvo, c.estado));
   }
   return new Ctx(alvo, simular);
 }

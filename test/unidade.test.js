@@ -87,3 +87,12 @@ test('procurar TVs: acha quem responde na porta do ADB', async (t) => {
     assert.deepEqual(r.achados, ['127.0.0.23:5555']);
   } finally { srv.close(); }
 });
+
+test('explicação de falha: IP sem resposta x ADB desligado', async () => {
+  const net = require('net');
+  const adb = require('../painel/lib/adb');
+  // porta fechada num IP que existe (127.0.0.1) => "ADB pela rede está desligado"
+  const livre = await new Promise((ok) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
+  assert.match(await adb.explicarFalha(`127.0.0.1:${livre}`, 'offline'), /ADB pela rede está desligado/);
+  assert.match(await adb.explicarFalha('127.0.0.1:5555', 'unauthorized'), /Permitir depuração/);
+});

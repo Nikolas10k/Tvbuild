@@ -162,7 +162,9 @@ async function rotear(req, res) {
     if (url.pathname === '/api/conectar' && req.method === 'POST') {
       const b = await lerCorpo(req);
       const alvo = ops.normalizarAlvo(b.alvo);
-      json(res, 200, await adb.conectar(alvo));
+      const c = await adb.conectar(alvo);
+      if (!c.ok) c.explicacao = await adb.explicarFalha(alvo, c.estado);
+      json(res, 200, c);
       return;
     }
 

@@ -193,6 +193,8 @@ platform-tools/               adb baixado pelo iniciar-painel (fora do git)
 |---|---|
 | **Não sei o IP da TV (ou estou sem o controle)** | No painel, clique em **Procurar TVs na rede**: ele acha as TVs com o ADB ligado na porta 5555 (muitas TV boxes já vêm assim) e adiciona com um clique. Se não achar: veja a lista de dispositivos na página do roteador (geralmente `192.168.0.1` ou `192.168.1.1`), use o app **Fing** no celular, ou ligue um mouse/teclado USB na TV box. |
 | **"Aceite Permitir depuração"** / `unauthorized` | Aceite o aviso na TV, marcando "Sempre permitir". Se não aparecer, desligue e ligue a depuração na TV e tente de novo. |
+| **"A TV respondeu, mas o ADB pela rede está desligado"** | Nas Opções do desenvolvedor, procure **Depuração ADB pela rede**, **ADB over network** ou **Depuração por Wi-Fi** e ative. Se a TV só tiver **Depuração USB**: ligue a TV box no PC com um cabo USB macho-macho (na porta OTG da box), abra um terminal na pasta do projeto e rode `platform-tools\adb tcpip 5555`. Depois tire o cabo e conecte pelo IP. Isso vale até a TV reiniciar. |
+| **"Nenhum aparelho respondeu nesse IP"** | O IP está errado ou a TV está em outra rede. Confira em Configurações → Rede da TV (ex.: `192.168.1.12`) e se o PC está no mesmo roteador. |
 | **Não conecta** | Confira o IP, se o PC e a TV estão na mesma rede e se a depuração em rede está ativa. No Android 11+, use o pareamento. |
 | **Conectava e parou depois de reiniciar a TV** | Com "Depuração sem fio" a porta muda a cada reinício: adicione o aparelho com a porta nova. |
 | **"adb não encontrado"** | Rode o `iniciar-painel.bat` e aceite baixar o Platform Tools, ou instale manualmente (https://developer.android.com/tools/releases/platform-tools). |

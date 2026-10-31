@@ -269,7 +269,7 @@ async function selecionar(alvo) {
   if (S.alvo !== alvo) return;
   renderAparelhos();
   if (!c.ok) {
-    cache().erroConexao = c.estado === 'unauthorized'
+    cache().erroConexao = c.explicacao ? c.explicacao : c.estado === 'unauthorized'
       ? 'O aparelho ainda não autorizou este PC. Aceite o aviso “Permitir depuração?” na tela da TV (marque “Sempre permitir”) e clique em Tentar de novo.'
       : `Não consegui conectar em ${alvo}. Confira se o IP está certo, se o PC e a TV estão na mesma rede e se a depuração ADB em rede está ativa. ${c.mensagem || ''}`;
   } else {

@@ -234,6 +234,7 @@ const ABAS = [
   ['geral', 'Visão geral'],
   ['apps', 'Apps'],
   ['launcher', 'Launcher'],
+  ['instalar', 'Instalar apps'],
   ['desempenho', 'Desempenho'],
   ['hy300', 'Projetor HY300'],
   ['historico', 'Histórico e desfazer'],
@@ -261,7 +262,7 @@ function renderPrincipal() {
     $('#btnReconectar').addEventListener('click', () => selecionar(S.alvo));
     return;
   }
-  ({ geral: abaGeral, apps: abaApps, launcher: abaLauncher, desempenho: abaDesempenho, hy300: abaHy300, historico: abaHistorico }[S.aba] || abaGeral)(c);
+  ({ geral: abaGeral, apps: abaApps, launcher: abaLauncher, instalar: abaInstalar, desempenho: abaDesempenho, hy300: abaHy300, historico: abaHistorico }[S.aba] || abaGeral)(c);
 }
 
 function carregando(c, texto) { c.innerHTML = `<div class="carregando"><span class="giro"></span>${esc(texto)}</div>`; }
@@ -436,8 +437,10 @@ async function abaLauncher(c, forcar = false) {
       <p class="texto-2">Leve, sem anúncios e feito para controle remoto. Pacote <code>${esc(r.projectivy)}</code>.</p>
       <div class="acoes" style="margin-top:12px">
         ${!r.projectivyInstalado ? `
-          <button class="btn" id="btnPlayStore">Abrir na Play Store da TV</button>
-          <label class="btn sec" for="apkLauncher">Instalar APK do PC…</label><input type="file" id="apkLauncher" accept=".apk" hidden>`
+          <button class="btn" id="btnInstProj">Instalar pelo painel</button>
+          <button class="btn sec" id="btnPlayStore">Abrir na Play Store da TV</button>
+          <label class="btn sec" for="apkLauncher">Enviar APK do PC…</label><input type="file" id="apkLauncher" accept=".apk" hidden>
+          <div id="progressoprojectivy" class="progresso" hidden></div>`
         : !proj ? '<div class="nota alerta">Projectivy está instalado, mas não aparece como tela inicial. Abra o app uma vez na TV e clique em Atualizar.</div>'
         : !projEmUso ? '<button class="btn" id="btnDefinirProj">Definir como tela inicial padrão</button>'
         : '<span class="texto-2">Pronto. No Google TV, ative em Projectivy → Configurações → “Substituir botão Home”.</span>'}
@@ -458,18 +461,12 @@ async function abaLauncher(c, forcar = false) {
           </div>
         </li>`).join('')}</ul>` : '<p class="texto-2">Nenhum outro launcher encontrado.</p>'}
     </div>
-    <div class="cartao">
-      <div class="cartao-cab"><h2>Apps sugeridos</h2><span><label class="btn" for="apkGeral">Instalar APK do PC…</label><input type="file" id="apkGeral" accept=".apk" hidden></span></div>
-      <ul class="lista-simples">
-        <li><div><b>SmartTube</b><div class="texto-2" style="font-size:13px">YouTube sem anúncios, com SponsorBlock. Baixe o APK em smarttubeapp.github.io</div></div></li>
-        <li><div><b>Kodi</b><div class="texto-2" style="font-size:13px">Mídia local e IPTV (PVR IPTV Simple Client)</div></div><button class="btn sec peq" data-store="org.xbmc.kodi">Abrir na Play Store da TV</button></li>
-        <li><div><b>TV Bro</b><div class="texto-2" style="font-size:13px">Navegador leve para controle remoto</div></div><button class="btn sec peq" data-store="com.phlox.tvwebbrowser">Abrir na Play Store da TV</button></li>
-        <li><div><b>X-plore File Manager</b><div class="texto-2" style="font-size:13px">Arquivos locais e de rede (SMB)</div></div><button class="btn sec peq" data-store="com.lonelycatgames.Xplore">Abrir na Play Store da TV</button></li>
-      </ul>
-    </div>`;
+    <div class="nota info" style="margin-top:16px">SmartTube, Kodi, VLC, navegador e outros: veja a aba <b>Instalar apps</b>.</div>`;
 
   c.querySelector('#btnAtLanc').addEventListener('click', () => abaLauncher(c, true));
   const recarregar = async () => { delete cache().info; await abaLauncher(c, true); };
+  const ip = c.querySelector('#btnInstProj');
+  if (ip) ip.addEventListener('click', () => instalarDoCatalogo('projectivy', ip, recarregar));
   const ps = c.querySelector('#btnPlayStore');
   if (ps) ps.addEventListener('click', (ev) => comBotao(ev.currentTarget, () => executarComConfirmacao({ titulo: 'Abrir Play Store na TV', operacao: 'abrirPlayStore', params: { pkg: r.projectivy } })));
   const dp = c.querySelector('#btnDefinirProj');
@@ -487,7 +484,7 @@ async function abaLauncher(c, forcar = false) {
     });
   })));
   c.querySelectorAll('[data-store]').forEach((b) => b.addEventListener('click', () => comBotao(b, () => executarComConfirmacao({ titulo: 'Abrir Play Store na TV', operacao: 'abrirPlayStore', params: { pkg: b.dataset.store } }))));
-  ['apkLauncher', 'apkGeral'].forEach((id) => {
+  ['apkLauncher'].forEach((id) => {
     const inp = document.getElementById(id);
     if (inp) inp.addEventListener('change', () => instalarApk(inp, id === 'apkLauncher' ? recarregar : null));
   });
@@ -511,6 +508,137 @@ async function instalarApk(input, depois) {
     delete cache().apps; delete cache().info; delete cache().desempenho;
     if (r.ok && depois) await depois();
   } catch (e) { toast(e.message, true); }
+}
+
+// ---------------------------------------------------------------------------- aba: instalar apps
+const fmtMB = (b) => (b == null ? '' : (b / 1048576).toFixed(b > 104857600 || b === 0 ? 0 : 1) + ' MB');
+const tarefasAtivas = {}; // id do app -> true
+
+function desenharProgresso(el, t) {
+  if (!el) return;
+  el.hidden = false;
+  const pct = t.total ? Math.min(100, Math.round(100 * t.baixado / t.total)) : null;
+  const barra = t.estado === 'baixando' ? (pct != null ? pct : 30) : t.estado === 'instalando' || t.estado === 'concluido' ? 100 : 5;
+  el.innerHTML = `<div class="progresso-txt"><span>${esc(t.fase)}</span><span class="mono">${t.estado === 'baixando' ? `${fmtMB(t.baixado)}${t.total ? ' de ' + fmtMB(t.total) : ''}` : ''}</span></div>
+    <div class="barra ${t.estado === 'erro' ? 'erro' : ''} ${t.estado === 'instalando' || (t.estado === 'baixando' && pct == null) ? 'animada' : ''}"><i style="width:${barra}%"></i></div>`;
+}
+
+// Acompanha uma tarefa de download+instalação até terminar
+async function acompanharTarefa(idTarefa, chave, titulo) {
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 700));
+    let t;
+    try { t = await api(`/api/tarefa?id=${idTarefa}`); } catch (e) { toast(e.message, true); return null; }
+    desenharProgresso(document.getElementById('progresso' + chave), t);
+    if (t.estado === 'concluido' || t.estado === 'erro') {
+      const passos = t.resultado ? t.resultado.passos.filter((p) => p.tipo !== 'leitura') : [{ tipo: 'aviso', explicacao: t.erro }];
+      atividade(`${titulo}: ${t.estado === 'concluido' ? 'instalado' + (t.resultado.versao ? ' (versão ' + t.resultado.versao + ')' : '') : 'falhou'}`, passos);
+      toast(t.estado === 'concluido' ? `${titulo} instalado.` : t.erro, t.estado === 'erro');
+      ['apps', 'info', 'launcher', 'desempenho', 'historico', 'resumo', 'catalogo'].forEach((k) => delete cache()[k]);
+      return t;
+    }
+  }
+}
+
+async function instalarDoCatalogo(id, btn, depois) {
+  if (tarefasAtivas[id]) return;
+  await comBotao(btn, async () => {
+    const r = await api('/api/apps/resolver', { metodo: 'POST', corpo: { alvo: S.alvo, id } });
+    const ok = await modal({
+      titulo: `Instalar ${r.nome}`,
+      html: `<ul class="lista-simples">
+          <li><span>Versão</span><span class="mono">${esc(r.versao)}</span></li>
+          <li><span>Arquivo</span><span class="mono">${esc(r.arquivo)}</span></li>
+          <li><span>Tamanho</span><span class="mono">${esc(fmtMB(r.tamanho) || 'desconhecido')}</span></li>
+          <li><span>Fonte oficial</span><span class="mono">${esc(r.origem)}</span></li>
+          <li><span>Processador da TV</span><span class="mono">${esc(r.abilist || '?')}</span></li>
+        </ul>
+        <p class="texto-2">O PC baixa o arquivo e instala na TV. Você não precisa mexer no controle.</p>
+        <div class="passo"><div class="exp">Instala no aparelho (volta com “Desfazer” no Histórico)</div><div class="cmd">$ adb install -r "${esc(r.arquivo)}"</div></div>`,
+      acoes: [{ texto: 'Cancelar', valor: false, classe: 'sec' }, { texto: `Baixar e instalar${r.tamanho ? ' (' + fmtMB(r.tamanho) + ')' : ''}`, valor: true }],
+    });
+    if (!ok) return;
+    tarefasAtivas[id] = true;
+    try {
+      const { tarefa } = await api('/api/apps/instalar', { metodo: 'POST', corpo: { alvo: S.alvo, id } });
+      desenharProgresso(document.getElementById('progresso' + id), { estado: 'preparando', fase: 'Preparando…', baixado: 0 });
+      const t = await acompanharTarefa(tarefa, id, r.nome);
+      if (t && t.estado === 'concluido' && depois) await depois();
+    } finally { delete tarefasAtivas[id]; }
+  });
+}
+
+async function abaInstalar(c, forcar = false) {
+  if (forcar) delete cache().catalogo;
+  let r = cache().catalogo;
+  if (!r) {
+    carregando(c, 'Verificando os apps instalados…');
+    try { r = await api('/api/apps/catalogo', { metodo: 'POST', corpo: { alvo: S.alvo } }); } catch (e) { c.innerHTML = `<div class="nota perigo">${esc(e.message)}</div>`; return; }
+    cache().catalogo = r;
+  }
+  if (S.aba !== 'instalar' || !c.isConnected) return;
+  const recarregar = () => abaInstalar(c, true);
+  c.innerHTML = `
+    <div class="cartao-cab">
+      <p class="texto-2">O painel baixa a versão mais nova <b>direto da fonte oficial</b>, escolhe o arquivo certo para o processador da TV e instala pelo ADB, sem usar o controle.</p>
+      <button class="btn sec peq" id="btnAtCat">Atualizar</button>
+    </div>
+    <p class="texto-2 mono" style="font-size:12px;margin-bottom:16px">Android ${esc(r.android)} · processador ${esc(r.abilist || '?')}</p>
+    <div class="grade-apps">${r.apps.map((a) => {
+      const inst = r.instalados[a.pacote];
+      const play = !a.fonte || a.fonte.tipo === 'playstore';
+      return `<div class="cartao app-cartao">
+        <div class="app-topo"><div><h3>${esc(a.nome)}</h3><div class="texto-2" style="font-size:12px">${esc(a.categoria)}</div></div>
+          ${inst ? `<span class="selo bloat" title="Versão instalada">${esc(inst === 'instalado' ? 'instalado' : 'v' + inst)}</span>` : ''}</div>
+        <p class="texto-2" style="font-size:14px">${esc(a.descricao)}</p>
+        <div class="app-rodape">
+          <span class="texto-2" style="font-size:12px">${play ? 'Play Store da TV' : 'Fonte oficial'}</span>
+          ${play ? `<button class="btn sec peq" data-store="${esc(a.pacote)}">${inst ? 'Ver na Play Store' : 'Abrir na Play Store'}</button>`
+                 : `<button class="btn ${inst ? 'sec ' : ''}peq" data-instalar="${esc(a.id)}" ${tarefasAtivas[a.id] ? 'disabled' : ''}>${inst ? 'Atualizar' : 'Instalar'}</button>`}
+        </div>
+        <div id="progresso${esc(a.id)}" class="progresso" hidden></div>
+      </div>`;
+    }).join('')}</div>
+
+    <div class="cartao" style="margin-top:16px">
+      <div class="cartao-cab"><h2>Outro app</h2></div>
+      <div class="outro-app">
+        <div>
+          <label for="urlApk" class="texto-2" style="font-size:13px;font-weight:500">Link direto para o arquivo .apk</label>
+          <div class="acoes" style="margin-top:6px;flex-wrap:nowrap">
+            <input id="urlApk" type="url" placeholder="https://site-oficial.com/app.apk" autocomplete="off">
+            <button class="btn" id="btnUrl">Baixar e instalar</button>
+          </div>
+          <div id="progressourl" class="progresso" hidden></div>
+        </div>
+        <div>
+          <span class="texto-2" style="font-size:13px;font-weight:500">Ou um APK que já está no PC</span>
+          <div class="acoes" style="margin-top:6px"><label class="btn sec" for="apkGeral">Enviar APK do PC…</label><input type="file" id="apkGeral" accept=".apk" hidden></div>
+        </div>
+      </div>
+      <p class="texto-2" style="font-size:13px;margin-top:12px">Use só links do site oficial do app. APKs de sites de terceiros podem vir com vírus ou anúncios.</p>
+    </div>`;
+
+  c.querySelector('#btnAtCat').addEventListener('click', recarregar);
+  c.querySelectorAll('[data-instalar]').forEach((b) => b.addEventListener('click', () => instalarDoCatalogo(b.dataset.instalar, b, recarregar)));
+  c.querySelectorAll('[data-store]').forEach((b) => b.addEventListener('click', () => comBotao(b, () => executarComConfirmacao({ titulo: 'Abrir Play Store na TV', operacao: 'abrirPlayStore', params: { pkg: b.dataset.store } }))));
+  const inp = c.querySelector('#apkGeral');
+  inp.addEventListener('change', () => instalarApk(inp, recarregar));
+  c.querySelector('#btnUrl').addEventListener('click', (ev) => comBotao(ev.currentTarget, async () => {
+    const url = c.querySelector('#urlApk').value.trim();
+    if (!/^https:\/\/\S+$/i.test(url)) { toast('Cole um link que comece com https://', true); c.querySelector('#urlApk').focus(); return; }
+    const ok = await modal({
+      titulo: 'Instalar a partir de um link',
+      html: `<p>O PC vai baixar:</p><p class="mono" style="word-break:break-all">${esc(url)}</p>
+        <div class="nota alerta">Este link não é do catálogo, então o painel não confere a origem. Só continue se ele for do <b>site oficial</b> do app.</div>
+        <label class="check-confirma"><input type="checkbox" data-confirma> <span>O link é do site oficial do app.</span></label>`,
+      acoes: [{ texto: 'Cancelar', valor: false, classe: 'sec' }, { texto: 'Baixar e instalar', valor: true, exigeCheck: true }],
+    });
+    if (!ok) return;
+    const { tarefa } = await api('/api/apps/instalar', { metodo: 'POST', corpo: { alvo: S.alvo, url } });
+    const t = await acompanharTarefa(tarefa, 'url', 'App do link');
+    if (t && t.estado === 'concluido') await recarregar();
+  }));
 }
 
 // ---------------------------------------------------------------------------- aba: desempenho
@@ -598,13 +726,14 @@ async function abaHy300(c, forcar = false) {
 }
 
 // ---------------------------------------------------------------------------- aba: histórico
-const ROTULO_TIPO = { DISABLE: 'Desativado', UNINSTALL: 'Removido (usuário 0)', SETTING: 'Configuração', APPOPS: 'Segundo plano', HOME: 'Launcher padrão' };
+const ROTULO_TIPO = { DISABLE: 'Desativado', UNINSTALL: 'Removido (usuário 0)', SETTING: 'Configuração', APPOPS: 'Segundo plano', HOME: 'Launcher padrão', INSTALL: 'App instalado pelo painel' };
 function descreverEntrada(e) {
   switch (e.tipo) {
     case 'DISABLE': case 'UNINSTALL': return e.a;
     case 'SETTING': return `${e.b}: ${e.c} → ${e.d}`;
     case 'APPOPS': return `${e.a} (${e.b}: ${e.c} → ${e.d})`;
     case 'HOME': return `${e.a.split('/')[0]} (antes: ${(e.b || '?').split('/')[0]})`;
+    case 'INSTALL': return e.a;
     default: return e.linha;
   }
 }

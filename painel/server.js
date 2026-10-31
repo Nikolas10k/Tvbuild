@@ -11,6 +11,7 @@ const path = require('path');
 const crypto = require('crypto');
 const adb = require('./lib/adb');
 const ops = require('./lib/ops');
+const apps = require('./lib/apps');
 
 const args = process.argv.slice(2);
 const REDE = args.includes('--rede');
@@ -167,7 +168,73 @@ async function rotear(req, res) {
         req.on('data', (c) => { tam += c.length; if (tam > 1024 * 1024 * 1024) { req.destroy(); reject(new ops.ErroUsuario('APK maior que 1 GB.')); } });
         req.pipe(w); w.on('finish', resolve); w.on('error', reject); req.on('error', reject);
       });
-      try { json(res, 200, await ops.instalarApk(alvo, tmp, nome)); } finally { fs.rm(tmp, { force: true }, () => {}); }
+      try { json(res, 200, await ops.instalarArquivo(alvo, tmp, nome)); } finally { fs.rm(tmp, { force: true }, () => {}); }
+      return;
+    }
+
+    // ---- catálogo de apps (baixa da fonte oficial e instala pelo adb)
+    if (url.pathname === '/api/apps/catalogo' && req.method === 'POST') {
+      const b = await lerCorpo(req);
+      const lista = apps.catalogo();
+      const st = await ops.catalogoStatus(b.alvo, { catalogo: lista });
+      json(res, 200, { apps: lista, ...st });
+      return;
+    }
+
+    if (url.pathname === '/api/apps/resolver' && req.method === 'POST') {
+      const b = await lerCorpo(req);
+      const alvo = ops.normalizarAlvo(b.alvo);
+      const abilist = (await adb.shell(alvo, ['getprop', 'ro.product.cpu.abilist'])).out.trim();
+      const r = await apps.resolver(String(b.id || ''), abilist);
+      json(res, 200, { id: r.app.id, nome: r.app.nome, pacote: r.app.pacote, versao: r.versao, arquivo: r.nome, url: r.url, tamanho: r.tamanho, abi: r.abi, origem: r.origem, abilist });
+      return;
+    }
+
+    if (url.pathname === '/api/apps/instalar' && req.method === 'POST') {
+      const b = await lerCorpo(req);
+      const alvo = ops.normalizarAlvo(b.alvo);
+      let app = null;
+      if (b.id) {
+        app = apps.catalogo().find((a) => a.id === b.id);
+        if (!app) throw new ops.ErroUsuario('App fora do catálogo.');
+      } else if (!/^https:\/\//i.test(String(b.url || ''))) {
+        throw new ops.ErroUsuario('Informe um link https:// para o arquivo .apk.');
+      }
+      const t = apps.novaTarefa(app ? app.nome : String(b.url));
+      json(res, 200, { tarefa: t.id });
+      (async () => {
+        let tmp = null;
+        try {
+          let link = b.url;
+          if (app) {
+            t.fase = 'Procurando a versão mais nova na fonte oficial…';
+            const abilist = (await adb.shell(alvo, ['getprop', 'ro.product.cpu.abilist'])).out.trim();
+            const r = await apps.resolver(app.id, abilist);
+            link = r.url; t.versao = r.versao; t.arquivo = r.nome; t.total = r.tamanho;
+          }
+          t.estado = 'baixando'; t.fase = 'Baixando para o PC…';
+          const d = await apps.baixar(link, (feito, total) => { t.baixado = feito; if (total) t.total = total; });
+          tmp = d.arquivo;
+          t.estado = 'instalando'; t.fase = 'Instalando na TV (pode levar 1–2 minutos)…';
+          const r = await ops.instalarArquivo(alvo, d.arquivo, app ? (t.arquivo || d.nome) : d.nome, { esperado: app ? app.pacote : undefined });
+          t.resultado = r;
+          t.estado = r.ok ? 'concluido' : 'erro';
+          t.fase = r.ok ? 'Instalado.' : r.erro;
+          if (!r.ok) t.erro = r.erro;
+        } catch (e) {
+          t.estado = 'erro'; t.erro = e.message; t.fase = e.message;
+          if (!(e instanceof apps.ErroApp) && !(e instanceof ops.ErroUsuario)) console.error(e);
+        } finally {
+          if (tmp) fs.rm(tmp, { force: true }, () => {});
+        }
+      })();
+      return;
+    }
+
+    if (url.pathname === '/api/tarefa' && req.method === 'GET') {
+      const t = apps.tarefa(url.searchParams.get('id'));
+      if (!t) { json(res, 404, { erro: 'Tarefa não encontrada.' }); return; }
+      json(res, 200, t);
       return;
     }
 
@@ -180,7 +247,7 @@ async function rotear(req, res) {
 
     json(res, 404, { erro: 'Rota não encontrada.' });
   } catch (e) {
-    if (e instanceof ops.ErroUsuario) json(res, 400, { erro: e.message });
+    if (e instanceof ops.ErroUsuario || e instanceof apps.ErroApp) json(res, 400, { erro: e.message });
     else { console.error(e); json(res, 500, { erro: 'Erro interno: ' + e.message }); }
   }
 }

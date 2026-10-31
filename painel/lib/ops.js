@@ -398,14 +398,55 @@ async function abrirPlayStore(alvo, { pkg = PROJECTIVY, simular } = {}) {
   });
 }
 
-async function instalarApk(alvo, arquivoTemp, nome) {
+const ERROS_INSTALACAO = [
+  [/INSTALL_FAILED_OLDER_SDK|requires newer sdk/i, 'Este app precisa de um Android mais novo que o do aparelho. Procure uma versão mais antiga do app.'],
+  [/NO_MATCHING_ABIS|CPU_ABI_INCOMPATIBLE/i, 'Este APK foi feito para outro tipo de processador.'],
+  [/INSUFFICIENT_STORAGE/i, 'Falta espaço no aparelho. Limpe o cache (aba Desempenho) ou desinstale algo.'],
+  [/UPDATE_INCOMPATIBLE|signatures do not match/i, 'Já existe uma versão deste app com outra assinatura (por exemplo, instalada pela Play Store). Desinstale a atual e tente de novo.'],
+  [/VERSION_DOWNGRADE/i, 'O aparelho já tem uma versão mais nova deste app.'],
+  [/PARSE_FAILED|INVALID_APK/i, 'O arquivo não é um APK válido ou está corrompido.'],
+  [/USER_RESTRICTED|verification|Rejected/i, 'O aparelho bloqueou a instalação. Na TV, permita instalar apps de fontes desconhecidas ou desative "Verificar apps via USB" nas Opções do desenvolvedor.'],
+];
+
+async function versaoInstalada(ctx, pkg) {
+  const out = await ctx.ler(['dumpsys', 'package', pkg]);
+  const m = out.match(/versionName=(\S+)/);
+  return m ? m[1] : '';
+}
+
+// Instala um APK que já está no PC. Detecta qual pacote entrou e registra no histórico (para desfazer).
+async function instalarArquivo(alvo, arquivo, nome, { esperado } = {}) {
   const ctx = await ctxConectado(alvo);
   return naFila(ctx.alvo, async () => {
-    const r = await adb.run(['-s', ctx.alvo, 'install', '-r', arquivoTemp], { timeout: 10 * 60 * 1000 });
+    await exigirBackup(ctx);
+    const antes = new Set(await pacotes(ctx));
+    const r = await adb.run(['-s', ctx.alvo, 'install', '-r', arquivo], { timeout: 15 * 60 * 1000 });
     const saida = (r.out + r.err).trim();
     const ok = r.code === 0 && /Success/i.test(saida);
     ctx.passos.push({ tipo: 'alteracao', explicacao: `Instala ${nome} no aparelho`, comando: `adb install -r "${nome}"`, saida, ok });
-    return ctx.resultado({ ok });
+    if (!ok) {
+      const dica = ERROS_INSTALACAO.find(([re]) => re.test(saida));
+      if (dica) ctx.aviso(dica[1]);
+      return ctx.resultado({ ok: false, erro: dica ? dica[1] : 'A instalação falhou. Veja os detalhes na Atividade.' });
+    }
+    const novos = (await pacotes(ctx)).filter((p) => !antes.has(p));
+    for (const p of novos) ctx.registrar(`INSTALL|${p}`);
+    const pkg = esperado || novos[0] || '';
+    const versao = pkg ? await versaoInstalada(ctx, pkg) : '';
+    if (esperado && !novos.includes(esperado) && !antes.has(esperado)) ctx.aviso(`Instalado, mas o pacote ${esperado} não apareceu. Confira na TV.`);
+    return ctx.resultado({ ok: true, pacote: pkg, versao, novo: novos.length > 0 });
+  });
+}
+
+// Estado do catálogo no aparelho: o que já está instalado, versão e arquitetura
+async function catalogoStatus(alvo, { catalogo } = {}) {
+  const ctx = await ctxConectado(alvo);
+  return naFila(ctx.alvo, async () => {
+    const [todos, props] = await Promise.all([pacotes(ctx), getprops(ctx)]);
+    const abilist = props['ro.product.cpu.abilist'] || props['ro.product.cpu.abi'] || (await ctx.ler(['getprop', 'ro.product.cpu.abilist'])).trim();
+    const instalados = {};
+    await Promise.all(catalogo.filter((a) => todos.includes(a.pacote)).map(async (a) => { instalados[a.pacote] = await versaoInstalada(ctx, a.pacote) || 'instalado'; }));
+    return ctx.resultado({ abilist, sdk: Number(props['ro.build.version.sdk'] || 0), android: props['ro.build.version.release'] || '', instalados });
   });
 }
 
@@ -557,6 +598,7 @@ function comandoDesfazer(e) {
       : { explicacao: `Restaura ${e.a}/${e.b} = ${e.c}`, args: ['settings', 'put', e.a, e.b, e.c] };
     case 'APPOPS': return { explicacao: `Restaura ${e.b} de ${e.a} para ${e.c}`, args: ['cmd', 'appops', 'set', e.a, e.b, e.c] };
     case 'HOME': return e.b ? { explicacao: `Volta o launcher para ${e.b.split('/')[0]}`, args: ['cmd', 'package', 'set-home-activity', e.b] } : null;
+    case 'INSTALL': return { explicacao: `Desinstala ${e.a} (instalado pelo painel)`, args: ['pm', 'uninstall', e.a] };
     default: return null;
   }
 }
@@ -664,6 +706,7 @@ async function resumo(alvo) {
       configuracoes: entradas.filter((e) => e.tipo === 'SETTING').map((e) => `${e.b}: ${e.c} → ${e.d}`),
       segundoPlano: [...new Set(entradas.filter((e) => e.tipo === 'APPOPS').map((e) => e.a))],
       launcher: entradas.filter((e) => e.tipo === 'HOME').map((e) => e.a.split('/')[0]).pop() || null,
+      instalados: entradas.filter((e) => e.tipo === 'INSTALL').map((e) => e.a),
     };
     const txt = [
       `Resumo — ${ctx.data} — ${ctx.alvo}`,
@@ -682,7 +725,7 @@ async function resumo(alvo) {
 module.exports = {
   ErroUsuario, normalizarAlvo, SAIDA,
   info, backup, classificar, desativar,
-  launcherStatus, definirLauncher, abrirPlayStore, instalarApk,
+  launcherStatus, definirLauncher, abrirPlayStore, instalarArquivo, catalogoStatus,
   desempenhoStatus, animacoes, restringirSegundoPlano, limparCache, encerrarSegundoPlano,
   hy300, abrirApp, historico, desfazer, gerarScripts, caminhoArquivo, resumo,
 };

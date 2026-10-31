@@ -100,10 +100,11 @@ Deixe a janela preta aberta enquanto usa o painel; fechar a janela fecha o paine
 1. **Adicione o aparelho** na lateral (nome, IP e tipo: TV box ou HY300). O painel conecta sozinho. Na primeira vez, aceite **"Permitir depuração?"** na TV.
 2. **Visão geral:** modelo, Android, chip, RAM, armazenamento e o roteiro com o que já foi feito. A primeira leitura grava a RAM "antes".
 3. **Apps:** classifica tudo em *Bloatware seguro / Dúvida / Launchers com anúncio / Seus apps / Essenciais*. Essenciais e seus apps não podem ser marcados. Marque, clique em **Revisar e desativar** e confira a lista de comandos antes de executar. Itens da lista Dúvida exigem marcar "Pesquisei e tenho certeza".
-4. **Launcher:** abre o Projectivy na Play Store da TV ou instala um APK do PC, define como padrão e só então libera desativar o launcher antigo. Também instala SmartTube, Kodi etc. a partir de um APK.
-5. **Desempenho:** animações 0.5x, bloquear apps que rodam sozinhos, limpar cache e liberar RAM.
-6. **Projetor HY300** (só para aparelhos do tipo HY300): resolução real, keystone/foco e firmware, com botão para abrir o app de atualização oficial.
-7. **Histórico e desfazer:** RAM antes/agora, cada alteração com botão **Desfazer** individual, **Desfazer tudo**, **Gerar scripts reaplicar/desfazer** (.bat e .sh) e download de backups e relatórios.
+4. **Launcher:** abre o Projectivy na Play Store da TV ou instala um APK do PC, define como padrão e só então libera desativar o launcher antigo.
+5. **Instalar apps:** instala SmartTube, Kodi, VLC, TV Bro e o próprio Projectivy **sem usar o controle**. O painel busca a versão mais nova na fonte oficial (GitHub do projeto, mirrors.kodi.tv, get.videolan.org), escolhe o arquivo certo para o processador da TV (arm64 / armv7 / x86), baixa no PC e instala pelo ADB, mostrando o progresso. Também aceita um link direto de `.apk` ou um APK que já esteja no PC. Apps que só existem na Play Store (Netflix, X-plore…) abrem direto na página certa na TV, e aí é só apertar **Instalar** no controle. A lista fica em [`config/catalogo_apps.json`](config/catalogo_apps.json).
+6. **Desempenho:** animações 0.5x, bloquear apps que rodam sozinhos, limpar cache e liberar RAM.
+7. **Projetor HY300** (só para aparelhos do tipo HY300): resolução real, keystone/foco e firmware, com botão para abrir o app de atualização oficial.
+8. **Histórico e desfazer:** RAM antes/agora, cada alteração (inclusive apps instalados pelo painel) com botão **Desfazer** individual, **Desfazer tudo**, **Gerar scripts reaplicar/desfazer** (.bat e .sh) e download de backups e relatórios.
 
 A barra **Atividade**, no rodapé, mostra cada comando executado e a resposta do aparelho.
 

@@ -589,6 +589,7 @@ cmd_gerar_scripts() {
       SETTING)   echo "A settings put $x $y $w" >> "$rs"; echo "adb -s %T% shell settings put $x $y $w" >> "$rb" ;;
       APPOPS)    echo "A cmd appops set $x $y $w" >> "$rs"; echo "adb -s %T% shell cmd appops set $x $y $w" >> "$rb" ;;
       HOME)      echo "A cmd package set-home-activity '$x'" >> "$rs"; echo "adb -s %T% shell cmd package set-home-activity \"$x\"" >> "$rb" ;;
+      INSTALL)   echo "# $x foi instalado pelo painel: instale de novo pela aba 'Instalar apps'" >> "$rs"; echo "REM $x foi instalado pelo painel: instale de novo pela aba Instalar apps" >> "$rb" ;;
     esac
   done < "$LOG"
 
@@ -604,6 +605,7 @@ cmd_gerar_scripts() {
                  fi ;;
       APPOPS)    echo "A cmd appops set $x $y $z" >> "$ds"; echo "adb -s %T% shell cmd appops set $x $y $z" >> "$db" ;;
       HOME)      [ -n "$y" ] && { echo "A cmd package set-home-activity '$y'" >> "$ds"; echo "adb -s %T% shell cmd package set-home-activity \"$y\"" >> "$db"; } ;;
+      INSTALL)   echo "A pm uninstall $x" >> "$ds"; echo "adb -s %T% shell pm uninstall $x" >> "$db" ;;
     esac
   done < <(tac "$LOG" 2>/dev/null || tail -r "$LOG")
 
@@ -630,6 +632,7 @@ cmd_desfazer() {
                  else explicar "Restaura $x/$y=$z" "settings put $x $y $z"; alterar settings put "$x" "$y" "$z"; fi ;;
       APPOPS)    explicar "Restaura $y de $x para $z" "cmd appops set $x $y $z"; alterar cmd appops set "$x" "$y" "$z" ;;
       HOME)      [ -n "$y" ] && { explicar "Restaura o launcher original" "cmd package set-home-activity $y"; alterar cmd package set-home-activity "$y"; } ;;
+      INSTALL)   explicar "Desinstala $x (instalado pelo painel)" "pm uninstall $x"; alterar pm uninstall "$x" ;;
     esac
   done < <(tac "$LOG" 2>/dev/null || tail -r "$LOG")
   if [ "$SIMULAR" != "1" ]; then mv "$LOG" "$ESTADO/alteracoes_desfeitas_$DATA.log"; fi

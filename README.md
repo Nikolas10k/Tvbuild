@@ -21,12 +21,12 @@ Deixa TV box Android e o projetor **HY300** (Allwinner) mais rápidos, **sem an�
 
 1. Baixe o projeto: no GitHub, **Code → Download ZIP**, e extraia numa pasta.
 2. Na TV, ative a depuração ADB (veja [Ativar o ADB na TV](#ativar-o-adb-na-tv)).
-3. Dê dois cliques em **`iniciar-painel.bat`**.
+3. Dê dois cliques em **`iniciar-painel.bat`**. A janela preta fica aberta enquanto o painel roda, e qualquer erro aparece nela.
    - Se faltar o **Node.js**, ele oferece instalar pelo `winget` (fonte oficial).
    - Se faltar o **adb**, ele oferece baixar o Platform Tools oficial do Google para a pasta do projeto.
 4. O navegador abre o painel. Clique em **Procurar TVs na rede** (ou digite o IP da TV) e aceite **"Permitir depuração?"** na tela da TV.
 
-Para usar também pelo celular (painel e controle remoto), abra pelo terminal com `iniciar-painel.bat --rede`.
+Para usar também pelo celular (painel e controle remoto), dê dois cliques em **`iniciar-painel-celular.bat`**.
 
 **Linux / macOS:**
 ```bash
@@ -96,7 +96,7 @@ A barra **Atividade**, no rodapé, mostra cada comando executado e a resposta da
 
 ## Controle remoto no celular
 
-Abra o painel com `--rede` (`iniciar-painel.bat --rede` ou `bash iniciar-painel.sh --rede`). A janela mostra dois links com código de acesso:
+Dê dois cliques em **`iniciar-painel-celular.bat`** (no Linux/macOS: `bash iniciar-painel.sh --rede`). A janela mostra dois links com código de acesso:
 
 ```
 Painel no celular:   http://192.168.0.10:7311/#t=código
@@ -164,6 +164,8 @@ Painel e linha de comando usam o mesmo registro (`saida/<ip>/estado/alteracoes.l
 
 ```
 iniciar-painel.bat / .sh      Abre o painel (instala Node.js/adb se faltar)
+iniciar-painel-celular.bat    Abre o painel liberado para o celular (controle remoto)
+painel/preparar.js            Confere o Node.js e baixa o adb oficial se faltar
 painel/server.js              Servidor local (Node.js, sem dependências)
 painel/lib/                   ADB, operações, catálogo de apps e controle remoto
 painel/public/                Interface do painel e do controle remoto
@@ -194,8 +196,9 @@ platform-tools/               adb baixado pelo iniciar-painel (fora do git)
 | **Não conecta** | Confira o IP, se o PC e a TV estão na mesma rede e se a depuração em rede está ativa. No Android 11+, use o pareamento. |
 | **Conectava e parou depois de reiniciar a TV** | Com "Depuração sem fio" a porta muda a cada reinício: adicione o aparelho com a porta nova. |
 | **"adb não encontrado"** | Rode o `iniciar-painel.bat` e aceite baixar o Platform Tools, ou instale manualmente (https://developer.android.com/tools/releases/platform-tools). |
+| **A janela do `.bat` abre e fecha na hora** | Era um problema das versões antigas com pastas que têm parênteses no nome, como `Tvbuild (1)`. Baixe a versão atual: agora a janela fica aberta e mostra o erro, se houver. |
 | **"A porta 7311 já está em uso"** | O painel já está aberto em outra janela. Use essa, ou inicie com `--porta 8080`. |
-| **O celular não abre o painel** | Inicie com `--rede`, use o link com código mostrado na janela e permita o Node.js no firewall do Windows (redes privadas). |
+| **O celular não abre o painel** | Inicie pelo `iniciar-painel-celular.bat`, use o link com código mostrado na janela e permita o Node.js no firewall do Windows (redes privadas). |
 | **A instalação de um app falhou** | A mensagem explica o motivo (Android antigo, falta de espaço, versão da Play Store já instalada…). Detalhes na barra Atividade. |
 | **Um app sumiu e faz falta** | Aba Histórico → Desfazer no item. |
 | **Tela inicial preta** | Histórico → Desfazer tudo. Sem o PC: **Configurações → Apps → mostrar apps do sistema → (launcher) → Ativar**. |

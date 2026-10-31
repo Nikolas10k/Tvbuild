@@ -2,6 +2,10 @@
 
 Deixa TV box Android e o projetor **HY300** (Allwinner) mais rápidos, **sem anúncios** e com interface limpa para streaming (YouTube, Netflix, IPTV/Kodi). Tudo roda do seu PC (Windows ou Linux), pela rede, usando ADB.
 
+Dois jeitos de usar, com as mesmas regras e o mesmo histórico:
+- **Painel (recomendado):** um sistema com interface no navegador que roda no seu PC. Dá para abrir também pelo celular. Veja [Painel](#painel-recomendado).
+- **Linha de comando:** `tvopt.sh` / `tvopt.bat`, para quem prefere terminal. Veja [Linha de comando](#linha-de-comando).
+
 > **Regras de segurança do projeto**
 > - Nada de root, flash de firmware ou bootloader.
 > - Só alterações reversíveis: `pm disable-user --user 0` ou `pm uninstall -k --user 0`. Nenhuma partição é apagada.
@@ -14,7 +18,9 @@ Deixa TV box Android e o projetor **HY300** (Allwinner) mais rápidos, **sem an�
 ## Estrutura
 
 ```
-tvopt.sh                     Script principal (Linux / macOS / Git Bash no Windows)
+iniciar-painel.bat / .sh     Abre o painel (dois cliques no Windows)
+painel/                      Painel local: servidor Node.js sem dependências + interface web
+tvopt.sh                     Linha de comando (Linux / macOS / Git Bash no Windows)
 tvopt.bat                    Atalho para Windows (roda o tvopt.sh pelo Git Bash)
 windows/coletar_e_backup.bat Coleta de informações + backup só com Windows (não altera nada)
 config/protegidos.txt        Pacotes que NUNCA são alterados (padrões regex)
@@ -28,16 +34,15 @@ saida/<ip>/                  Backups, relatórios e scripts gerados (fica fora d
 ## Passo 0: preparar o PC
 
 1. Baixe o **Android SDK Platform-Tools**: https://developer.android.com/tools/releases/platform-tools
-   - **Windows:** extraia em `C:\platform-tools` e coloque essa pasta no PATH (Painel de Controle → Sistema → Variáveis de ambiente → Path → Novo). Instale também o **Git for Windows** (https://git-scm.com/download/win) para usar o `tvopt.bat`.
+   - **Windows:** extraia em `C:\platform-tools` e coloque essa pasta no PATH (Painel de Controle → Sistema → Variáveis de ambiente → Path → Novo).
    - **Linux:** `sudo apt install adb` (Debian/Ubuntu) ou `sudo dnf install android-tools` (Fedora).
-2. Baixe este projeto:
+2. Para o **painel**: instale o **Node.js LTS** (versão 18 ou mais nova) em https://nodejs.org. No Linux: `sudo apt install nodejs`.
+   Para a **linha de comando no Windows**: instale o **Git for Windows** (https://git-scm.com/download/win).
+3. Baixe este projeto: no GitHub, clique em **Code → Download ZIP** e extraia, ou use o git:
    ```bash
    git clone https://github.com/Nikolas10k/Tvbuild.git
    ```
-   ```bash
-   cd Tvbuild && chmod +x tvopt.sh
-   ```
-3. Confirme que o adb funciona:
+4. Confirme que o adb funciona:
    ```bash
    adb version
    ```
@@ -80,9 +85,48 @@ Nos comandos do `tvopt`, use `IP:PORTA` no lugar do IP.
 
 ---
 
-## Como usar
+## Painel (recomendado)
 
-Linux: `./tvopt.sh <IP> <comando>` · Windows: `tvopt.bat <IP> <comando>`
+**Windows:** dê dois cliques em `iniciar-painel.bat`. O navegador abre em `http://localhost:7311`.
+**Linux:**
+```bash
+bash iniciar-painel.sh
+```
+
+Deixe a janela preta aberta enquanto usa o painel; fechar a janela fecha o painel. Não precisa de `npm install`, porque o painel não tem dependências.
+
+### Como funciona
+
+1. **Adicione o aparelho** na lateral (nome, IP e tipo: TV box ou HY300). O painel conecta sozinho. Na primeira vez, aceite **"Permitir depuração?"** na TV.
+2. **Visão geral:** modelo, Android, chip, RAM, armazenamento e o roteiro com o que já foi feito. A primeira leitura grava a RAM "antes".
+3. **Apps:** classifica tudo em *Bloatware seguro / Dúvida / Launchers com anúncio / Seus apps / Essenciais*. Essenciais e seus apps não podem ser marcados. Marque, clique em **Revisar e desativar** e confira a lista de comandos antes de executar. Itens da lista Dúvida exigem marcar "Pesquisei e tenho certeza".
+4. **Launcher:** abre o Projectivy na Play Store da TV ou instala um APK do PC, define como padrão e só então libera desativar o launcher antigo. Também instala SmartTube, Kodi etc. a partir de um APK.
+5. **Desempenho:** animações 0.5x, bloquear apps que rodam sozinhos, limpar cache e liberar RAM.
+6. **Projetor HY300** (só para aparelhos do tipo HY300): resolução real, keystone/foco e firmware, com botão para abrir o app de atualização oficial.
+7. **Histórico e desfazer:** RAM antes/agora, cada alteração com botão **Desfazer** individual, **Desfazer tudo**, **Gerar scripts reaplicar/desfazer** (.bat e .sh) e download de backups e relatórios.
+
+A barra **Atividade**, no rodapé, mostra cada comando executado e a resposta do aparelho.
+
+### Usar pelo celular
+
+```bash
+bash iniciar-painel.sh --rede
+```
+No Windows: `iniciar-painel.bat --rede`. A janela mostra um link como `http://192.168.0.10:7311/#t=código`: abra esse link no celular, na mesma rede Wi-Fi. O código muda a cada vez que o painel é iniciado. Sem ele, ninguém na rede consegue usar o painel. Se o Windows perguntar sobre o firewall, permita só em **redes privadas**.
+
+### Segurança do painel
+
+- Por padrão, só aceita conexões do próprio PC (`127.0.0.1`).
+- Recusa pedidos de outros sites abertos no navegador (cabeçalho obrigatório e checagem de host).
+- Valida nomes de pacote e IP antes de mandar qualquer coisa ao aparelho, e nada passa pelo shell do PC.
+- Usa as mesmas listas de `config/` e o mesmo registro `saida/<ip>/estado/alteracoes.log` do `tvopt.sh`: o que você fizer no painel pode ser desfeito pela linha de comando e vice-versa.
+- Não dá para hospedar o painel no Vercel ou em outro servidor na internet: ele precisa estar na mesma rede dos aparelhos para falar com eles pelo ADB.
+
+---
+
+## Linha de comando
+
+Linux: `./tvopt.sh <IP> <comando>` (se baixou o ZIP, rode antes `chmod +x tvopt.sh`) · Windows: `tvopt.bat <IP> <comando>`
 
 Exemplos com a TV box em `192.168.0.50` e o HY300 em `192.168.0.51`:
 

@@ -1,0 +1,12 @@
+{
+  "name": "tvbuild",
+  "version": "1.0.0",
+  "description": "Painel local para otimizar TV box e projetor Android via ADB, sem root e com tudo reversível",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node painel/server.js",
+    "rede": "node painel/server.js --rede"
+  }
+}

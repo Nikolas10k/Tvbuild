@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tvbuild Painel</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Tvbuild</span><small>Painel</small>
+    </div>
+    <div id="statusAdb" class="status-adb">verificando adb…</div>
+  </header>
+
+  <div class="layout">
+    <aside class="lateral">
+      <h2 class="rotulo-secao">Aparelhos</h2>
+      <ul id="listaAparelhos" class="lista-aparelhos"></ul>
+      <form id="formAparelho" class="form-aparelho" autocomplete="off">
+        <label for="fNome">Nome</label>
+        <input id="fNome" placeholder="ex.: TV box da sala" maxlength="40">
+        <label for="fAlvo">IP do aparelho</label>
+        <input id="fAlvo" placeholder="192.168.0.50" required inputmode="decimal">
+        <label for="fTipo">Tipo</label>
+        <select id="fTipo">
+          <option value="box">TV box / Android TV</option>
+          <option value="hy300">Projetor HY300</option>
+        </select>
+        <button type="submit" class="btn">Adicionar aparelho</button>
+      </form>
+      <details class="ajuda-adb">
+        <summary>Como ativar o ADB no aparelho</summary>
+        <ol>
+          <li>Configurações → Sobre → aperte <b>OK 7×</b> em “Build / Versão”.</li>
+          <li>Opções do desenvolvedor → ative <b>Depuração USB</b> e <b>ADB pela rede</b>.</li>
+          <li>Anote o IP em Configurações → Rede.</li>
+          <li>Ao conectar, aceite <b>“Permitir depuração?”</b> na TV, com “Sempre permitir”.</li>
+        </ol>
+      </details>
+    </aside>
+
+    <main id="principal" class="principal">
+      <section class="vazio">
+        <h1>Nenhum aparelho selecionado</h1>
+        <p>Adicione a TV box ou o projetor pelo IP, à esquerda. Nada é alterado sem você confirmar, e tudo pode ser desfeito.</p>
+      </section>
+    </main>
+  </div>
+
+  <section id="atividade" class="atividade" aria-label="Atividade">
+    <button id="btnAtividade" class="atividade-cab" aria-expanded="false">Atividade <span id="contAtividade" class="cont">0</span></button>
+    <ol id="logAtividade" class="atividade-log"></ol>
+  </section>
+
+  <dialog id="modal" class="modal">
+    <form method="dialog" class="modal-corpo">
+      <h2 id="modalTitulo"></h2>
+      <div id="modalConteudo" class="modal-conteudo"></div>
+      <div class="modal-acoes" id="modalAcoes"></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

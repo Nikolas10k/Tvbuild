@@ -1,0 +1,12 @@
+# Launchers de fábrica conhecidos por exibir anúncios/recomendações.
+# Só são oferecidos para desativação na etapa "launcher", DEPOIS que outro
+# launcher (ex.: Projectivy) estiver definido como padrão e funcionando.
+# O launcher em uso NUNCA é desativado.
+# Launchers de fabricante (droidlogic, softwinner etc.) aparecem na etapa
+# "launcher" como itens de DÚVIDA, perguntados um a um.
+
+com.google.android.tvlauncher         # Android TV Home (Android 8–11)
+com.google.android.apps.tv.launcherx  # Google TV Home
+com.google.android.leanbacklauncher   # Android TV Home antigo (Android 5–7)
+com.android.launcher3                 # Launcher AOSP (layout de celular)
+com.android.launcher                  # Launcher AOSP antigo

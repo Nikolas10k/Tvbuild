@@ -1,0 +1,71 @@
+# Padrões (regex estendida, comparados com o nome do pacote) que NUNCA serão
+# desativados ou removidos pelo tvopt.sh — nem que você peça.
+# Além destes, o script protege dinamicamente:
+#   - o launcher em uso (atividade HOME atual)
+#   - o teclado em uso (settings secure default_input_method)
+# Os padrões são propositalmente amplos: é melhor proteger demais do que quebrar o aparelho.
+
+# Núcleo do sistema
+^android$
+^com\.android\.systemui
+^com\.android\.shell$
+^com\.android\.server
+^com\.android\.providers\.
+^com\.android\.externalstorage
+^com\.android\.defcontainer
+^com\.android\.extservices
+^com\.android\.inputdevices
+^com\.android\.keychain
+^com\.android\.certinstaller
+^com\.android\.location
+^com\.android\.media
+^com\.android\.se$
+^com\.android\.phone$
+^com\.android\.vending$
+networkstack
+packageinstaller
+permissioncontroller
+webview
+mediaprovider
+documentsui
+frameworkpackagestubs
+setupwizard|setupwraith|tungsten|tvsetup
+
+# Configurações
+settings
+
+# Teclados / entrada
+inputmethod
+\.ime$
+\.ime\.
+keyboard
+leanback\.ime
+
+# Conectividade
+wifi
+bluetooth
+^com\.android\.nfc
+
+# Google Play Services / framework
+^com\.google\.android\.gms
+^com\.google\.android\.gsf
+^com\.google\.android\.ext\.
+
+# HDMI / vídeo / TV
+hdmi
+cec
+tvinput|tv\.input|tvprovider|tv\.provider
+display
+remote
+
+# Projetor: keystone, foco, correção de imagem
+keystone|trapez|correct
+focus
+projector|projection
+
+# Plataformas dos chips (serviços de hardware: Allwinner / Amlogic / Rockchip)
+softwinner
+allwinner
+droidlogic
+amlogic
+rockchip

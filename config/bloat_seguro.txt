@@ -1,0 +1,56 @@
+# Pacotes considerados SEGUROS para desativar em TV box / projetor Android.
+# Formato: pacote  # descrição
+# Só serão desativados os que estiverem instalados, habilitados, NÃO protegidos
+# (config/protegidos.txt) e após sua confirmação. Tudo é reversível com "desfazer".
+
+# --- Apps de celular que não fazem sentido na TV ---
+com.android.calendar            # Agenda
+com.android.email               # E-mail
+com.android.contacts            # Contatos
+com.android.dialer              # Discador
+com.android.mms                 # SMS/MMS
+com.android.stk                 # Menu do chip SIM
+com.android.camera2             # Câmera
+com.android.deskclock           # Relógio/alarme
+com.android.calculator2         # Calculadora
+com.android.soundrecorder       # Gravador de som
+com.android.gallery3d           # Galeria antiga
+com.android.music               # Player de música antigo
+com.android.quicksearchbox      # Barra de busca antiga
+com.android.bookmarkprovider    # Favoritos do navegador antigo
+com.android.htmlviewer          # Visualizador HTML
+com.android.egg                 # Easter egg do Android
+
+# --- Impressão ---
+com.android.printspooler        # Spooler de impressão
+com.android.bips                # Serviço de impressão padrão
+
+# --- Papéis de parede animados / protetores de tela ---
+com.android.wallpaper.livepicker  # Seletor de papel de parede animado
+com.android.wallpaper           # Papéis de parede animados
+com.android.galaxy4             # Papel de parede animado
+com.android.noisefield          # Papel de parede animado
+com.android.magicsmoke          # Papel de parede animado
+com.android.musicvis            # Papel de parede animado
+com.android.phasebeam           # Papel de parede animado
+com.android.dreams.phototable   # Protetor de tela "mesa de fotos"
+com.google.android.backdrop     # Modo ambiente (protetor de tela Google)
+com.google.android.apps.tv.dreamx  # Protetor de tela Google TV
+
+# --- Google: recomendações (anúncios na home) e apps pouco usados ---
+com.google.android.tvrecommendations              # Recomendações/anúncios na tela inicial
+com.google.android.leanbacklauncher.recommendations # Recomendações do launcher antigo
+com.google.android.feedback                       # Envio de feedback
+com.google.android.play.games                     # Play Games
+com.google.android.videos                         # Google TV / Play Filmes
+com.google.android.music                          # Play Music (descontinuado)
+com.google.android.youtube.tvkids                 # YouTube Kids
+com.google.android.youtube.tvmusic                # YouTube Music
+com.google.android.marvin.talkback                # Leitor de tela (acessibilidade)
+
+# --- Telemetria / atualizadores de terceiros conhecidos em boxes genéricos ---
+com.adups.fota                  # Adups FOTA (atualizador chinês, histórico de coleta de dados)
+com.adups.fota.sysoper          # Adups FOTA (componente)
+com.facebook.appmanager         # Facebook pré-instalado
+com.facebook.system             # Facebook pré-instalado
+com.facebook.services           # Facebook pré-instalado

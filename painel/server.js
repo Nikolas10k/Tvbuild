@@ -12,17 +12,33 @@ const crypto = require('crypto');
 const adb = require('./lib/adb');
 const ops = require('./lib/ops');
 const apps = require('./lib/apps');
+const controle = require('./lib/controle');
 
 const args = process.argv.slice(2);
 const REDE = args.includes('--rede');
 const iPorta = args.indexOf('--porta');
 const PORTA = Number(iPorta >= 0 ? args[iPorta + 1] : process.env.PORTA || 7311);
 const HOST = REDE ? '0.0.0.0' : '127.0.0.1';
-const TOKEN = REDE ? crypto.randomBytes(6).toString('hex') : null;
+// Código de acesso do modo rede: fica salvo para o atalho do celular continuar funcionando.
+// Use --novo-codigo para gerar outro (quem tinha o link antigo perde o acesso).
+function codigoDeAcesso() {
+  const arq = path.join(ops.SAIDA, '.codigo_acesso');
+  try {
+    if (!args.includes('--novo-codigo')) {
+      const c = fs.readFileSync(arq, 'utf8').trim();
+      if (/^[0-9a-f]{12}$/.test(c)) return c;
+    }
+  } catch (_) { /* gera um novo */ }
+  const novo = crypto.randomBytes(6).toString('hex');
+  fs.mkdirSync(ops.SAIDA, { recursive: true });
+  fs.writeFileSync(arq, novo + '\n', { mode: 0o600 });
+  return novo;
+}
+const TOKEN = REDE ? codigoDeAcesso() : null;
 const PUBLICO = path.join(__dirname, 'public');
 const APARELHOS = path.join(ops.SAIDA, 'aparelhos.json');
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 
 // ----------------------------------------------------------------------------- aparelhos salvos
 function lerAparelhos() {
@@ -91,6 +107,7 @@ function autorizado(req) {
 function servirEstatico(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
   if (rel === '/') rel = '/index.html';
+  if (rel === '/controle') rel = '/controle.html';
   const arq = path.normalize(path.join(PUBLICO, rel));
   if (!arq.startsWith(PUBLICO + path.sep)) { res.writeHead(403); res.end(); return; }
   fs.readFile(arq, (err, dados) => {
@@ -172,6 +189,31 @@ async function rotear(req, res) {
       return;
     }
 
+    // ---- controle remoto
+    const mCtl = url.pathname.match(/^\/api\/controle\/(\w+)$/);
+    if (mCtl) {
+      const acao = mCtl[1];
+      if (acao === 'tela' && req.method === 'GET') {
+        const alvo = ops.normalizarAlvo(url.searchParams.get('alvo'));
+        await controle.garantirConexao(alvo);
+        const png = await controle.capturarTela(alvo);
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
+        res.end(png);
+        return;
+      }
+      if (req.method !== 'POST') { json(res, 405, { erro: 'Método não permitido.' }); return; }
+      const b = await lerCorpo(req, 16 * 1024);
+      const alvo = ops.normalizarAlvo(b.alvo);
+      if (acao === 'tecla') { await controle.tecla(alvo, String(b.tecla), { longo: !!b.longo }); json(res, 200, { ok: true }); return; }
+      if (acao === 'texto') { json(res, 200, { ok: true, ...(await controle.texto(alvo, b.texto)) }); return; }
+      if (acao === 'toque') { await controle.toque(alvo, b.x, b.y); json(res, 200, { ok: true }); return; }
+      if (acao === 'rolar') { await controle.rolar(alvo, String(b.direcao)); json(res, 200, { ok: true }); return; }
+      if (acao === 'abrir') { await controle.abrirApp(alvo, String(b.pkg)); json(res, 200, { ok: true }); return; }
+      if (acao === 'atalhos') { json(res, 200, { atalhos: await controle.atalhos(alvo) }); return; }
+      json(res, 404, { erro: 'Ação desconhecida.' });
+      return;
+    }
+
     // ---- catálogo de apps (baixa da fonte oficial e instala pelo adb)
     if (url.pathname === '/api/apps/catalogo' && req.method === 'POST') {
       const b = await lerCorpo(req);
@@ -247,7 +289,7 @@ async function rotear(req, res) {
 
     json(res, 404, { erro: 'Rota não encontrada.' });
   } catch (e) {
-    if (e instanceof ops.ErroUsuario || e instanceof apps.ErroApp) json(res, 400, { erro: e.message });
+    if (e instanceof ops.ErroUsuario || e instanceof apps.ErroApp || e instanceof controle.ErroControle) json(res, 400, { erro: e.message });
     else { console.error(e); json(res, 500, { erro: 'Erro interno: ' + e.message }); }
   }
 }
@@ -260,6 +302,8 @@ servidor.on('error', (e) => {
   else console.error(e);
   process.exit(1);
 });
+process.on('SIGINT', () => { controle.fecharTodos(); process.exit(0); });
+process.on('SIGTERM', () => { controle.fecharTodos(); process.exit(0); });
 servidor.listen(PORTA, HOST, async () => {
   const v = await adb.versao();
   console.log('\n  Tvbuild — Painel local');
@@ -268,8 +312,12 @@ servidor.listen(PORTA, HOST, async () => {
   console.log(`  Abra no navegador:  http://localhost:${PORTA}${TOKEN ? '/#t=' + TOKEN : ''}`);
   if (REDE) {
     const ips = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
-    ips.forEach((ip) => console.log(`  No celular (mesma rede): http://${ip}:${PORTA}/#t=${TOKEN}`));
-    console.log('  O código de acesso muda a cada vez que o painel é iniciado.');
+    ips.forEach((ip) => {
+      console.log(`  Painel no celular:   http://${ip}:${PORTA}/#t=${TOKEN}`);
+      console.log(`  Controle remoto:     http://${ip}:${PORTA}/controle#t=${TOKEN}`);
+    });
+    console.log('  Abra o link no celular (mesma rede Wi-Fi). Para trocar o código: --novo-codigo');
   }
+  if (!REDE) console.log(`  Controle remoto:     http://localhost:${PORTA}/controle   (no celular: inicie com --rede)`);
   console.log('\n  Para fechar o painel, feche esta janela (ou Ctrl+C).\n');
 });

@@ -106,6 +106,20 @@ Deixe a janela preta aberta enquanto usa o painel; fechar a janela fecha o paine
 7. **Projetor HY300** (só para aparelhos do tipo HY300): resolução real, keystone/foco e firmware, com botão para abrir o app de atualização oficial.
 8. **Histórico e desfazer:** RAM antes/agora, cada alteração (inclusive apps instalados pelo painel) com botão **Desfazer** individual, **Desfazer tudo**, **Gerar scripts reaplicar/desfazer** (.bat e .sh) e download de backups e relatórios.
 
+### Controle remoto no celular
+
+Inicie o painel com `--rede` (`iniciar-painel.bat --rede`). A janela mostra o link **Controle remoto** (`http://IP-do-PC:7311/controle#t=código`): abra no celular, na mesma rede Wi-Fi, e use **"Adicionar à tela inicial"** para ele virar um ícone de app. O código de acesso fica salvo entre reinícios, para o atalho continuar funcionando. Para trocar o código, use `--novo-codigo`. No painel, o botão **Controle remoto** ao lado do nome do aparelho abre o mesmo controle no PC.
+
+- **Direcional + OK, Voltar, Início, Menu, volume, mudo e mídia.** Segure as setas e o volume para repetir.
+- **Atalhos dos apps** instalados (SmartTube, Netflix, Kodi…) e Configurações.
+- **Touchpad:** deslize para mover a seleção e toque para OK.
+- **Digitar:** escreva no celular e o texto aparece na TV (senhas, buscas). Acentos e emojis não passam pelo ADB: “ção” vira “cao”.
+- **Ver tela:** um print da TV a cada 2 segundos. Toque na imagem para tocar naquele ponto da TV. Apps com proteção (Netflix, por exemplo) aparecem pretos.
+- **Ligar/desligar** a tela (precisa de dois toques).
+- No PC, as setas, Enter, Backspace, + e − do teclado também controlam a TV.
+
+Os comandos levam de 0,1 a 0,3 s para chegar, porque passam pelo ADB. Isso é ótimo para navegar, mas não serve para jogar: para emuladores, pareie um controle Bluetooth (PS4/PS5/Xbox) direto na TV box.
+
 A barra **Atividade**, no rodapé, mostra cada comando executado e a resposta do aparelho.
 
 ### Usar pelo celular
@@ -117,7 +131,8 @@ No Windows: `iniciar-painel.bat --rede`. A janela mostra um link como `http://19
 
 ### Segurança do painel
 
-- Por padrão, só aceita conexões do próprio PC (`127.0.0.1`).
+- Por padrão, só aceita conexões do próprio PC (`127.0.0.1`). Com `--rede`, exige o código de acesso, salvo em `saida/.codigo_acesso`.
+- O controle só envia teclas de uma lista fixa (setas, OK, volume…); nenhum comando livre chega à TV.
 - Recusa pedidos de outros sites abertos no navegador (cabeçalho obrigatório e checagem de host).
 - Valida nomes de pacote e IP antes de mandar qualquer coisa ao aparelho, e nada passa pelo shell do PC.
 - Usa as mesmas listas de `config/` e o mesmo registro `saida/<ip>/estado/alteracoes.log` do `tvopt.sh`: o que você fizer no painel pode ser desfeito pela linha de comando e vice-versa.

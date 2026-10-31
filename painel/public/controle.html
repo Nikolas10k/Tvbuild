@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#101417">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Controle Tvbuild</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="manifest" href="controle.webmanifest">
+  <style>
+    /* Controle remoto: uma coluna estreita, botões grandes, pensado para o polegar. Tema escuro fixo (uso no escuro, em frente à TV). */
+    :root {
+      --fundo: #101417;
+      --corpo: #181d21;
+      --tecla: #242b30;
+      --tecla-2: #2d353b;
+      --borda: #333c43;
+      --texto: #eef1f3;
+      --texto-2: #98a3ab;
+      --acento: #2dd4bf;
+      --acento-escuro: #0d9488;
+      --acento-texto: #052421;
+      --perigo: #f97066;
+      --ok: #47cd89;
+      color-scheme: dark;
+      --raio: 16px;
+      --fonte: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: var(--fundo); color: var(--texto); font: 15px/1.4 var(--fonte); }
+    body {
+      min-height: 100vh; min-height: 100dvh;
+      padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      display: flex; justify-content: center;
+      user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+    .controle { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* topo */
+    .topo { display: flex; align-items: center; gap: 10px; }
+    .marca { font-weight: 700; letter-spacing: .02em; color: var(--acento); font-size: 15px; white-space: nowrap; }
+    .seletor { flex: 1; min-width: 0; position: relative; }
+    .seletor select {
+      width: 100%; appearance: none; -webkit-appearance: none; background: var(--corpo); border: 1px solid var(--borda);
+      border-radius: 999px; padding: 8px 32px 8px 30px; font-size: 14px; text-overflow: ellipsis;
+    }
+    .seletor::after { content: "▾"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--texto-2); pointer-events: none; }
+    .ponto { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%; background: var(--texto-2); }
+    .ponto.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(71, 205, 137, .18); }
+    .ponto.erro { background: var(--perigo); }
+    .energia { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--borda); background: var(--corpo); display: grid; place-items: center; flex: none; }
+    .energia.armado { background: var(--perigo); border-color: var(--perigo); color: #fff; }
+
+    .aviso { background: #3a1715; color: #ffd6d2; border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+    .aviso[hidden] { display: none; }
+
+    /* atalhos */
+    .atalhos { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; scroll-snap-type: x proximity; }
+    .atalhos::-webkit-scrollbar { display: none; }
+    .atalho {
+      flex: none; scroll-snap-align: start; border: 1px solid var(--borda); background: var(--corpo); border-radius: 12px;
+      padding: 9px 14px; font-size: 14px; font-weight: 600; white-space: nowrap;
+    }
+    .atalho:active { background: var(--tecla-2); }
+    .atalhos .vazio { color: var(--texto-2); font-size: 13px; padding: 9px 0; }
+
+    /* direcional */
+    .dpad {
+      position: relative; width: min(280px, 78vw); aspect-ratio: 1; margin: 4px auto 0; border-radius: 50%;
+      background: radial-gradient(circle at 50% 40%, var(--tecla-2), var(--corpo) 70%); border: 1px solid var(--borda);
+      box-shadow: inset 0 -6px 18px rgba(0, 0, 0, .35);
+    }
+    .dpad button { position: absolute; border: none; background: transparent; color: var(--texto-2); display: grid; place-items: center; border-radius: 12px; }
+    .dpad button:active, .dpad button.ativo { color: var(--acento); }
+    .dpad .seta { width: 34%; height: 30%; }
+    .dpad .cima { top: 2%; left: 33%; } .dpad .baixo { bottom: 2%; left: 33%; }
+    .dpad .esq { left: 2%; top: 35%; width: 30%; height: 30%; } .dpad .dir { right: 2%; top: 35%; width: 30%; height: 30%; }
+    .dpad .ok {
+      width: 38%; height: 38%; left: 31%; top: 31%; border-radius: 50%; background: var(--acento); color: var(--acento-texto);
+      font-weight: 800; font-size: 18px; letter-spacing: .04em; box-shadow: 0 6px 18px rgba(45, 212, 191, .25), inset 0 -3px 0 var(--acento-escuro);
+    }
+    .dpad .ok:active, .dpad .ok.ativo { transform: scale(.96); color: var(--acento-texto); background: #5eead4; }
+
+    /* fileiras de teclas */
+    .fileira { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .tecla {
+      height: 54px; border-radius: var(--raio); border: 1px solid var(--borda); background: var(--tecla);
+      display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25);
+    }
+    .tecla:active, .tecla.ativo { background: var(--tecla-2); transform: translateY(1px); }
+    .tecla svg { flex: none; }
+    .tecla small { font-weight: 500; color: var(--texto-2); font-size: 12px; }
+
+    /* abas inferiores */
+    .abas { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--corpo); border: 1px solid var(--borda); border-radius: 12px; padding: 4px; gap: 4px; }
+    .aba { border: none; background: transparent; border-radius: 9px; padding: 8px; font-size: 14px; font-weight: 600; color: var(--texto-2); }
+    .aba[aria-selected="true"] { background: var(--tecla-2); color: var(--texto); }
+    .painel-aba[hidden] { display: none; }
+
+    .touchpad {
+      height: 190px; border-radius: var(--raio); border: 1px dashed var(--borda); background: var(--corpo);
+      display: grid; place-items: center; text-align: center; color: var(--texto-2); font-size: 13px; touch-action: none; position: relative; overflow: hidden;
+    }
+    .touchpad .rastro { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(45, 212, 191, .25); pointer-events: none; transform: translate(-50%, -50%); }
+
+    .teclado { display: flex; flex-direction: column; gap: 10px; }
+    .teclado input {
+      width: 100%; background: var(--corpo); border: 1px solid var(--borda); border-radius: 12px; padding: 12px 14px; font-size: 16px;
+      user-select: text; -webkit-user-select: text;
+    }
+    .teclado .fileira .tecla { height: 46px; }
+    .dica { color: var(--texto-2); font-size: 12px; }
+
+    .tela { display: flex; flex-direction: column; gap: 8px; }
+    .tela-quadro { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--borda); }
+    .tela-quadro img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .tela-quadro .msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--texto-2); font-size: 13px; text-align: center; padding: 16px; }
+    .tela-acoes { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .botao {
+      white-space: nowrap; border: 1px solid var(--borda); background: var(--tecla); border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+    }
+    .botao.principal { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+
+    .rodape { color: var(--texto-2); font-size: 12px; text-align: center; padding-top: 4px; }
+    .rodape a { color: var(--texto-2); }
+    @media (prefers-reduced-motion: reduce) { .tecla:active, .dpad .ok:active { transform: none; } }
+    @media (max-height: 700px) { .dpad { width: min(240px, 66vw); } .tecla { height: 48px; } }
+  </style>
+</head>
+<body>
+  <main class="controle">
+    <header class="topo">
+      <span class="marca">Tvbuild</span>
+      <label class="seletor">
+        <span id="ponto" class="ponto" aria-hidden="true"></span>
+        <select id="aparelho" aria-label="Aparelho"></select>
+      </label>
+      <button id="energia" class="energia" aria-label="Ligar ou desligar a tela" title="Ligar/desligar (toque duas vezes)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg>
+      </button>
+    </header>
+
+    <div id="aviso" class="aviso" role="alert" hidden></div>
+
+    <nav id="atalhos" class="atalhos" aria-label="Abrir app"><span class="vazio">Carregando apps…</span></nav>
+
+    <div class="dpad" role="group" aria-label="Direcional">
+      <button class="seta cima" data-tecla="CIMA" data-repetir aria-label="Cima"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M12 7l6 8H6z" fill="currentColor"/></svg></button>
+      <button class="seta esq" data-tecla="ESQUERDA" data-repetir aria-label="Esquerda"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M7 12l8-6v12z" fill="currentColor"/></svg></button>
+      <button class="ok" data-tecla="OK" aria-label="OK">OK</button>
+      <button class="seta dir" data-tecla="DIREITA" data-repetir aria-label="Direita"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M17 12l-8 6V6z" fill="currentColor"/></svg></button>
+      <button class="seta baixo" data-tecla="BAIXO" data-repetir aria-label="Baixo"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M12 17l-6-8h12z" fill="currentColor"/></svg></button>
+    </div>
+
+    <div class="fileira">
+      <button class="tecla" data-tecla="VOLTAR"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Voltar</button>
+      <button class="tecla" data-tecla="INICIO"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Início</button>
+      <button class="tecla" data-tecla="MENU"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
+    </div>
+    <div class="fileira">
+      <button class="tecla" data-tecla="VOL_MENOS" data-repetir aria-label="Diminuir volume"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 12h4"/></svg></button>
+      <button class="tecla" data-tecla="MUDO" aria-label="Sem som"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg></button>
+      <button class="tecla" data-tecla="VOL_MAIS" data-repetir aria-label="Aumentar volume"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 12h4M19 10v4"/></svg></button>
+    </div>
+    <div class="fileira">
+      <button class="tecla" data-tecla="RETROCEDER" data-repetir aria-label="Retroceder"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M11 6v12l-8-6zM21 6v12l-8-6z" fill="currentColor"/></svg></button>
+      <button class="tecla" data-tecla="PLAY_PAUSE" aria-label="Reproduzir ou pausar"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 5v14l9-7z" fill="currentColor"/><path d="M15 5h2.5v14H15zM19.5 5H22v14h-2.5z" fill="currentColor"/></svg></button>
+      <button class="tecla" data-tecla="AVANCAR" data-repetir aria-label="Avançar"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M13 6v12l8-6zM3 6v12l8-6z" fill="currentColor"/></svg></button>
+    </div>
+
+    <div class="abas" role="tablist">
+      <button class="aba" role="tab" data-aba="touchpad" aria-selected="true">Touchpad</button>
+      <button class="aba" role="tab" data-aba="teclado" aria-selected="false">Digitar</button>
+      <button class="aba" role="tab" data-aba="tela" aria-selected="false">Ver tela</button>
+    </div>
+
+    <section class="painel-aba" id="aba-touchpad">
+      <div id="touchpad" class="touchpad">Deslize para mover a seleção<br>Toque para OK</div>
+    </section>
+
+    <section class="painel-aba teclado" id="aba-teclado" hidden>
+      <form id="formTexto" autocomplete="off">
+        <input id="texto" type="text" enterkeyhint="send" placeholder="Senha do Wi-Fi, busca no YouTube…" aria-label="Texto para digitar na TV">
+      </form>
+      <div class="fileira">
+        <button class="tecla" data-tecla="APAGAR"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="M12 9l6 6M18 9l-6 6"/></svg>Apagar</button>
+        <button class="tecla" data-tecla="ENTER">Enter</button>
+        <button class="tecla" id="btnEnviar" style="background:var(--acento);color:var(--acento-texto);border-color:var(--acento)">Enviar</button>
+      </div>
+      <p class="dica">Primeiro selecione o campo de texto na TV. Acentos e emojis não passam pelo ADB (“ção” vira “cao”).</p>
+    </section>
+
+    <section class="painel-aba tela" id="aba-tela" hidden>
+      <div id="quadro" class="tela-quadro"><span class="msg">A prévia mostra um print da TV a cada 2 segundos. Toque na imagem para tocar na TV.</span></div>
+      <div class="tela-acoes">
+        <span class="dica" id="telaInfo">Desligada</span>
+        <button class="botao principal" id="btnTela">Ligar prévia</button>
+      </div>
+    </section>
+
+    <p class="rodape">Dica: no celular, use “Adicionar à tela inicial” para abrir o controle como um app.<br><a href="/">Abrir o painel completo</a></p>
+  </main>
+  <script src="controle.js"></script>
+</body>
+</html>

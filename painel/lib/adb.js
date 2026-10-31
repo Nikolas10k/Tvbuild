@@ -57,4 +57,4 @@ function desconectar(alvo) {
   return run(['disconnect', alvo], { timeout: 10000 });
 }
 
-module.exports = { run, shell, versao, dispositivos, conectar, desconectar, q };
+module.exports = { ADB, run, shell, versao, dispositivos, conectar, desconectar, q };

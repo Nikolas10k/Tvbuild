@@ -112,6 +112,7 @@ input, select {
 .btn:hover { filter: brightness(1.08); }
 .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
 .btn.sec { background: var(--superficie); color: var(--texto); border-color: var(--borda); }
+a.btn { text-decoration: none; }
 .btn.sec:hover { background: var(--superficie-2); }
 .btn.perigo { background: var(--perigo); border-color: var(--perigo); color: #fff; }
 .btn.peq { padding: 4px 10px; font-size: 13px; }

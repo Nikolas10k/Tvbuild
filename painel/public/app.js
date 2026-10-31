@@ -19,8 +19,8 @@ const S = {
 (function lerToken() {
   const m = location.hash.match(/t=([0-9a-f]+)/);
   try {
-    if (m) { sessionStorage.setItem('tvbuild_token', m[1]); history.replaceState(null, '', location.pathname); }
-    S.token = sessionStorage.getItem('tvbuild_token');
+    if (m) { localStorage.setItem('tvbuild_token', m[1]); history.replaceState(null, '', location.pathname); }
+    S.token = localStorage.getItem('tvbuild_token');
   } catch (_) { S.token = m ? m[1] : null; }
 })();
 
@@ -251,6 +251,9 @@ function renderPrincipal() {
   m.innerHTML = `
     <div class="cab-aparelho">
       <div><h1>${esc(ap.nome)}</h1><div class="sub mono">${esc(ap.alvo)}</div></div>
+      <a class="btn sec" href="/controle#alvo=${encodeURIComponent(ap.alvo)}${S.token ? '&t=' + S.token : ''}" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="9" r="2.5"/><path d="M10 15h4M10 18h4"/></svg>
+        Controle remoto</a>
     </div>
     <nav class="abas" role="tablist">${abas.map(([id, nome]) => `<button class="aba" role="tab" data-aba="${id}" aria-selected="${S.aba === id}">${nome}</button>`).join('')}</nav>
     <div id="conteudo"></div>`;

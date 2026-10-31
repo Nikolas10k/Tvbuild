@@ -13,6 +13,7 @@ const adb = require('./lib/adb');
 const ops = require('./lib/ops');
 const apps = require('./lib/apps');
 const controle = require('./lib/controle');
+const rede = require('./lib/rede');
 
 const args = process.argv.slice(2);
 const REDE = args.includes('--rede');
@@ -162,6 +163,19 @@ async function rotear(req, res) {
       const b = await lerCorpo(req);
       const alvo = ops.normalizarAlvo(b.alvo);
       json(res, 200, await adb.conectar(alvo));
+      return;
+    }
+
+    if (url.pathname === '/api/procurar' && req.method === 'POST') {
+      const r = await rede.procurar();
+      const salvos = new Set(lerAparelhos().map((a) => a.alvo));
+      const achados = await Promise.all(r.achados.map(async (alvo) => {
+        const c = await adb.conectar(alvo);
+        let modelo = '';
+        if (c.ok) modelo = (await adb.shell(alvo, ['getprop', 'ro.product.model'], { timeout: 8000 })).out.trim();
+        return { alvo, estado: c.estado, modelo, jaAdicionado: salvos.has(alvo) };
+      }));
+      json(res, 200, { redes: r.redes, achados });
       return;
     }
 

@@ -74,3 +74,16 @@ test('cada tipo de alteração tem como ser desfeita', () => {
     assert.equal(comandoDesfazer({ tipo, a, b, c, d }).args.join(' '), esperado, linha);
   }
 });
+
+test('procurar TVs: acha quem responde na porta do ADB', async (t) => {
+  const net = require('net');
+  const rede = require('../painel/lib/rede');
+  const srv = net.createServer((s) => s.end());
+  try {
+    await new Promise((ok, falha) => { srv.once('error', falha); srv.listen(5555, '127.0.0.23', ok); });
+  } catch (_) { t.skip('não foi possível escutar em 127.0.0.23:5555 neste sistema'); return; }
+  try {
+    const r = await rede.procurar({ redes: [{ base: '127.0.0', ip: '127.0.0.1' }], tempo: 300 });
+    assert.deepEqual(r.achados, ['127.0.0.23:5555']);
+  } finally { srv.close(); }
+});

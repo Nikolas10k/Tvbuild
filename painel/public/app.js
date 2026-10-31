@@ -205,6 +205,45 @@ $('#formAparelho').addEventListener('submit', async (ev) => {
   });
 });
 
+// Procura TVs com o ADB ligado na rede (porta 5555): acha o IP sem precisar do controle
+$('#btnProcurar').addEventListener('click', (ev) => comBotao(ev.currentTarget, async () => {
+  const caixa = $('#resultadoBusca');
+  const btn = $('#btnProcurar');
+  btn.textContent = 'Procurando… (até 1 minuto)';
+  caixa.hidden = false;
+  caixa.innerHTML = '<div class="carregando" style="padding:4px 0"><span class="giro"></span>Testando os endereços da rede…</div>';
+  try {
+    const r = await api('/api/procurar', { metodo: 'POST', corpo: {} });
+    const estadoTxt = (a) => a.estado === 'device' ? 'pronta' : a.estado === 'unauthorized' ? 'aceite “Permitir depuração?” na TV' : 'não respondeu ao ADB';
+    if (!r.achados.length) {
+      caixa.innerHTML = `<p><b>Nenhuma TV com ADB ligado</b> em ${esc(r.redes.join(', ') || 'nenhuma rede encontrada')}.</p>
+        <p>Outras formas de achar o IP sem o controle:</p>
+        <ul>
+          <li>Na página do roteador (geralmente <span class="mono">192.168.0.1</span> ou <span class="mono">192.168.1.1</span>), em “dispositivos conectados”: procure nomes como <i>android</i>, <i>MXQ</i>, <i>p212</i> ou <i>rk322x</i>.</li>
+          <li>No celular, o app <b>Fing</b> lista todos os aparelhos da rede.</li>
+          <li>Ligue um <b>mouse ou teclado USB</b> na TV box para navegar até Configurações → Rede.</li>
+        </ul>`;
+      return;
+    }
+    caixa.innerHTML = `<p>${r.achados.length} TV${r.achados.length > 1 ? 's' : ''} encontrada${r.achados.length > 1 ? 's' : ''}:</p>` + r.achados.map((a) => `
+      <div class="achado">
+        <div><b>${esc(a.modelo || 'TV / TV box')}</b><span class="mono">${esc(a.alvo)} · ${esc(estadoTxt(a))}</span></div>
+        ${a.jaAdicionado ? '<span class="texto-2" style="font-size:12px">já na lista</span>' : `<button class="btn peq" data-adicionar="${esc(a.alvo)}" data-modelo="${esc(a.modelo)}">Adicionar</button>`}
+      </div>`).join('');
+    caixa.querySelectorAll('[data-adicionar]').forEach((b) => b.addEventListener('click', () => comBotao(b, async () => {
+      const r2 = await api('/api/aparelhos', { metodo: 'POST', corpo: { nome: b.dataset.modelo || 'TV box', alvo: b.dataset.adicionar, tipo: /hy300/i.test(b.dataset.modelo) ? 'hy300' : 'box' } });
+      S.aparelhos = r2.aparelhos;
+      renderAparelhos();
+      b.replaceWith(Object.assign(document.createElement('span'), { className: 'texto-2', textContent: 'adicionada' }));
+      selecionar(b.dataset.adicionar);
+    })));
+  } catch (e) {
+    caixa.innerHTML = `<p>${esc(e.message)}</p>`;
+  } finally {
+    btn.textContent = 'Procurar TVs na rede';
+  }
+}));
+
 $('#formParear').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   await comBotao(ev.submitter, async () => {

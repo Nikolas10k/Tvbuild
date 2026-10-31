@@ -24,7 +24,7 @@ Deixa TV box Android e o projetor **HY300** (Allwinner) mais rápidos, **sem an�
 3. Dê dois cliques em **`iniciar-painel.bat`**.
    - Se faltar o **Node.js**, ele oferece instalar pelo `winget` (fonte oficial).
    - Se faltar o **adb**, ele oferece baixar o Platform Tools oficial do Google para a pasta do projeto.
-4. O navegador abre o painel. Adicione a TV pelo IP e aceite **"Permitir depuração?"** na tela da TV.
+4. O navegador abre o painel. Clique em **Procurar TVs na rede** (ou digite o IP da TV) e aceite **"Permitir depuração?"** na tela da TV.
 
 Para usar também pelo celular (painel e controle remoto), abra pelo terminal com `iniciar-painel.bat --rede`.
 
@@ -189,6 +189,7 @@ platform-tools/               adb baixado pelo iniciar-painel (fora do git)
 
 | Problema | Solução |
 |---|---|
+| **Não sei o IP da TV (ou estou sem o controle)** | No painel, clique em **Procurar TVs na rede**: ele acha as TVs com o ADB ligado na porta 5555 (muitas TV boxes já vêm assim) e adiciona com um clique. Se não achar: veja a lista de dispositivos na página do roteador (geralmente `192.168.0.1` ou `192.168.1.1`), use o app **Fing** no celular, ou ligue um mouse/teclado USB na TV box. |
 | **"Aceite Permitir depuração"** / `unauthorized` | Aceite o aviso na TV, marcando "Sempre permitir". Se não aparecer, desligue e ligue a depuração na TV e tente de novo. |
 | **Não conecta** | Confira o IP, se o PC e a TV estão na mesma rede e se a depuração em rede está ativa. No Android 11+, use o pareamento. |
 | **Conectava e parou depois de reiniciar a TV** | Com "Depuração sem fio" a porta muda a cada reinício: adicione o aparelho com a porta nova. |

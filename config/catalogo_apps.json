@@ -1,0 +1,74 @@
+{
+  "_leia": "Catálogo da aba 'Instalar apps' do painel. Só fontes oficiais. 'fonte.tipo': github (última release do repositório oficial), kodi (mirrors.kodi.tv), videolan (get.videolan.org) ou playstore (abre a página na TV). 'preferir': palavras que o nome do arquivo deve ter; 'evitar': palavras que tiram o arquivo da escolha.",
+  "apps": [
+    {
+      "id": "projectivy",
+      "nome": "Projectivy Launcher",
+      "categoria": "Tela inicial",
+      "descricao": "Tela inicial leve e sem anúncios, feita para controle remoto.",
+      "pacote": "com.spocky.projengmenu",
+      "site": "https://github.com/spocky/miproja1",
+      "fonte": { "tipo": "github", "repo": "spocky/miproja1", "evitar": ["debug"] }
+    },
+    {
+      "id": "smarttube",
+      "nome": "SmartTube",
+      "categoria": "Vídeo",
+      "descricao": "YouTube para TV sem anúncios, com SponsorBlock e 4K.",
+      "pacote": "com.teamsmart.videomanager.tv",
+      "site": "https://smarttubeapp.github.io",
+      "fonte": { "tipo": "github", "repo": "yuliskov/SmartTube", "preferir": ["stable"], "evitar": ["beta", "debug"] }
+    },
+    {
+      "id": "kodi",
+      "nome": "Kodi",
+      "categoria": "Vídeo",
+      "descricao": "Central de mídia: arquivos locais, rede e IPTV (PVR IPTV Simple Client).",
+      "pacote": "org.xbmc.kodi",
+      "site": "https://kodi.tv/download/android",
+      "fonte": { "tipo": "kodi" }
+    },
+    {
+      "id": "vlc",
+      "nome": "VLC",
+      "categoria": "Vídeo",
+      "descricao": "Toca praticamente qualquer vídeo, local ou da rede (SMB, DLNA).",
+      "pacote": "org.videolan.vlc",
+      "site": "https://www.videolan.org/vlc/download-android.html",
+      "fonte": { "tipo": "videolan" }
+    },
+    {
+      "id": "tvbro",
+      "nome": "TV Bro",
+      "categoria": "Navegador",
+      "descricao": "Navegador leve, pensado para usar com o controle.",
+      "pacote": "com.phlox.tvwebbrowser",
+      "site": "https://github.com/truefedex/tv-bro",
+      "fonte": { "tipo": "github", "repo": "truefedex/tv-bro", "preferir": ["generic"], "evitar": ["debug"] }
+    },
+    {
+      "id": "xplore",
+      "nome": "X-plore File Manager",
+      "categoria": "Arquivos",
+      "descricao": "Gerenciador de arquivos com acesso à rede (SMB).",
+      "pacote": "com.lonelycatgames.Xplore",
+      "fonte": { "tipo": "playstore" }
+    },
+    {
+      "id": "sendfiles",
+      "nome": "Send Files to TV",
+      "categoria": "Arquivos",
+      "descricao": "Envia arquivos e APKs do celular para a TV.",
+      "pacote": "com.yablio.sendfilestotv",
+      "fonte": { "tipo": "playstore" }
+    },
+    {
+      "id": "netflix",
+      "nome": "Netflix",
+      "categoria": "Streaming",
+      "descricao": "Use a versão da Play Store da TV: a de celular não funciona bem com controle.",
+      "pacote": "com.netflix.ninja",
+      "fonte": { "tipo": "playstore" }
+    }
+  ]
+}

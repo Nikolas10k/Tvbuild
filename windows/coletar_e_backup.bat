@@ -8,7 +8,8 @@ setlocal
 if "%~1"=="" (echo Uso: %~nx0 IP_DO_APARELHO & exit /b 1)
 set "T=%~1"
 echo %T% | find ":" >nul || set "T=%~1:5555"
-where adb >nul 2>nul || (echo [ERRO] adb.exe nao encontrado no PATH. & exit /b 1)
+if exist "%~dp0..\platform-tools\adb.exe" set "PATH=%~dp0..\platform-tools;%PATH%"
+where adb >nul 2>nul || (echo [ERRO] adb.exe nao encontrado. Rode o iniciar-painel.bat uma vez para baixar. & exit /b 1)
 
 for /f "tokens=2 delims==" %%a in ('wmic os get localdatetime /value 2^>nul ^| find "="') do set "DT=%%a"
 if defined DT (set "D=%DT:~0,4%-%DT:~4,2%-%DT:~6,2%_%DT:~8,6%") else (set "D=%RANDOM%")

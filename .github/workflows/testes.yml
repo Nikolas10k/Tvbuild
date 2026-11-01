@@ -1,0 +1,27 @@
+name: Testes
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Testes do painel
+        run: npm test
+      - name: Sintaxe dos scripts
+        run: |
+          bash -n tvopt.sh
+          bash -n iniciar-painel.sh
+          for f in painel/server.js painel/preparar.js painel/lib/*.js painel/public/*.js; do node --check "$f"; done

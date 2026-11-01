@@ -50,6 +50,8 @@ confirmar() { # confirmar "pergunta"  -> 0 = sim
 ALVO=""; SAIDA=""; ESTADO=""; LOG=""
 
 preparar_alvo() {
+  [ -x "$RAIZ/platform-tools/adb" ] && export PATH="$RAIZ/platform-tools:$PATH"
+  [ -x "$RAIZ/platform-tools/adb.exe" ] && export PATH="$RAIZ/platform-tools:$PATH"
   command -v adb >/dev/null 2>&1 || morrer "adb não encontrado. Instale o Android Platform Tools (veja o README)."
   ALVO="$1"
   [[ "$ALVO" == *:* ]] || ALVO="$ALVO:5555"
@@ -124,17 +126,24 @@ padroes_protegidos() { grep -vE '^[[:space:]]*(#|$)' "$CONFIG/protegidos.txt"; }
 lista_config()       { sed 's/#.*//' "$CONFIG/$1" | awk 'NF {print $1}'; }
 descricao_config()   { grep -E "^$(printf '%s' "$2" | sed 's/\./\\./g')[[:space:]]" "$CONFIG/$1" | sed -n 's/.*#[[:space:]]*//p' | head -n1; }
 
-PROT_LAUNCHER=""; PROT_TECLADO=""; PROT_REGEX=""
+PROT_LAUNCHER=""; PROT_LAUNCHERS=""; PROT_TECLADO=""; PROT_REGEX=""
 carregar_protecao_dinamica() {
   PROT_REGEX="$(padroes_protegidos | paste -sd'|' -)"
   PROT_LAUNCHER="$(pacote_launcher_atual)"
   PROT_TECLADO="$(teclado_atual)"
+  # Sem tela inicial padrão o Android responde com o seletor do sistema ("android"):
+  # nesse caso, todas as telas iniciais ficam protegidas.
+  PROT_LAUNCHERS=""
+  if [ -z "$PROT_LAUNCHER" ] || [ "$PROT_LAUNCHER" = "android" ]; then
+    PROT_LAUNCHERS=" $(launchers_disponiveis | cut -d/ -f1 | sort -u | tr '\n' ' ') "
+  fi
 }
 
 # protegido <pacote> [ignorar_padroes] -> 0 se NÃO pode mexer; imprime motivo
 protegido() {
   local p="$1" ignorar="${2:-0}"
   if [ -n "$PROT_LAUNCHER" ] && [ "$p" = "$PROT_LAUNCHER" ]; then echo "launcher em uso"; return 0; fi
+  if [[ "$PROT_LAUNCHERS" == *" $p "* ]]; then echo "pode ser o launcher em uso (nenhuma tela inicial padrão)"; return 0; fi
   if [ -n "$PROT_TECLADO" ] && [ "$p" = "$PROT_TECLADO" ]; then echo "teclado em uso"; return 0; fi
   [ "$ignorar" = "1" ] && return 1
   [ -n "$PROT_REGEX" ] || PROT_REGEX="$(padroes_protegidos | paste -sd'|' -)"
@@ -306,8 +315,10 @@ cmd_desativar() {
   local -a cand=()
   local p motivo
   if [ ${#extras[@]} -gt 0 ]; then
+    local homes; homes=" $(launchers_disponiveis | cut -d/ -f1 | sort -u | tr '\n' ' ') "
     for p in "${extras[@]}"; do
       if motivo="$(protegido "$p")"; then aviso "RECUSADO: $p ($motivo)"; continue; fi
+      if [[ "$homes" == *" $p "* ]]; then aviso "RECUSADO: $p é uma tela inicial (use o comando launcher; o botão Início pode depender dela)"; continue; fi
       printf '%s\n' "$ativos" | grep -qx "$p" || { aviso "Ignorado: $p não está instalado/ativo"; continue; }
       cand+=("$p")
     done
@@ -589,6 +600,7 @@ cmd_gerar_scripts() {
       SETTING)   echo "A settings put $x $y $w" >> "$rs"; echo "adb -s %T% shell settings put $x $y $w" >> "$rb" ;;
       APPOPS)    echo "A cmd appops set $x $y $w" >> "$rs"; echo "adb -s %T% shell cmd appops set $x $y $w" >> "$rb" ;;
       HOME)      echo "A cmd package set-home-activity '$x'" >> "$rs"; echo "adb -s %T% shell cmd package set-home-activity \"$x\"" >> "$rb" ;;
+      INSTALL)   echo "# $x foi instalado pelo painel: instale de novo pela aba 'Instalar apps'" >> "$rs"; echo "REM $x foi instalado pelo painel: instale de novo pela aba Instalar apps" >> "$rb" ;;
     esac
   done < "$LOG"
 
@@ -604,6 +616,7 @@ cmd_gerar_scripts() {
                  fi ;;
       APPOPS)    echo "A cmd appops set $x $y $z" >> "$ds"; echo "adb -s %T% shell cmd appops set $x $y $z" >> "$db" ;;
       HOME)      [ -n "$y" ] && { echo "A cmd package set-home-activity '$y'" >> "$ds"; echo "adb -s %T% shell cmd package set-home-activity \"$y\"" >> "$db"; } ;;
+      INSTALL)   echo "A pm uninstall $x" >> "$ds"; echo "adb -s %T% shell pm uninstall $x" >> "$db" ;;
     esac
   done < <(tac "$LOG" 2>/dev/null || tail -r "$LOG")
 
@@ -630,6 +643,7 @@ cmd_desfazer() {
                  else explicar "Restaura $x/$y=$z" "settings put $x $y $z"; alterar settings put "$x" "$y" "$z"; fi ;;
       APPOPS)    explicar "Restaura $y de $x para $z" "cmd appops set $x $y $z"; alterar cmd appops set "$x" "$y" "$z" ;;
       HOME)      [ -n "$y" ] && { explicar "Restaura o launcher original" "cmd package set-home-activity $y"; alterar cmd package set-home-activity "$y"; } ;;
+      INSTALL)   explicar "Desinstala $x (instalado pelo painel)" "pm uninstall $x"; alterar pm uninstall "$x" ;;
     esac
   done < <(tac "$LOG" 2>/dev/null || tail -r "$LOG")
   if [ "$SIMULAR" != "1" ]; then mv "$LOG" "$ESTADO/alteracoes_desfeitas_$DATA.log"; fi

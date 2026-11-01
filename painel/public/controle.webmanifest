@@ -1,0 +1,10 @@
+{
+  "name": "Controle Tvbuild",
+  "short_name": "Controle TV",
+  "start_url": "/controle",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101417",
+  "theme_color": "#101417",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

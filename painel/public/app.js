@@ -532,7 +532,7 @@ async function abaLauncher(c, forcar = false) {
       params: { pacotes: [b.dataset.desat], permitirLaunchers: true },
       alertaHtml: conhecido
         ? '<div class="nota info">Launcher de fábrica conhecido por mostrar anúncios. Se a tela ficar preta, use a aba Histórico para desfazer.</div>'
-        : '<div class="nota alerta"><b>Dúvida:</b> este launcher não está na lista conhecida. Pode ser usado pelo fabricante para menus próprios.</div>',
+        : '<div class="nota alerta"><b>Cuidado:</b> este launcher é do fabricante. Em muitos aparelhos o botão <b>Início</b> do controle abre direto ele, e desativá-lo deixa a tela preta. Antes, ative no Projectivy a opção <b>“Substituir botão Início”</b> e teste. Se a tela ficar preta, use Desfazer no Histórico.</div>',
       exigeCheck: !conhecido, depois: recarregar,
     });
   })));

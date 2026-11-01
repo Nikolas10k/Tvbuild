@@ -63,6 +63,11 @@ keystone|trapez|correct
 focus
 projector|projection
 
+# Launchers de fabricante ligados ao botão Início do controle em projetores HY300 e similares
+# (desativá-los deixa a tela inicial preta)
+jmlauncher
+htclauncher
+
 # Plataformas dos chips (serviços de hardware: Allwinner / Amlogic / Rockchip)
 softwinner
 allwinner

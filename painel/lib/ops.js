@@ -317,7 +317,8 @@ async function classificar(alvo) {
   const ctx = await ctxConectado(alvo);
   return naFila(ctx.alvo, async () => {
     ctx.leitura('Lista os pacotes e compara com config/*.txt', 'pm list packages / -3 / -d');
-    const [todos, usuario, off, prot] = await Promise.all([pacotes(ctx), pacotes(ctx, '-3'), pacotes(ctx, '-d'), protecaoDinamica(ctx)]);
+    const [todos, usuario, off, prot, homes] = await Promise.all([pacotes(ctx), pacotes(ctx, '-3'), pacotes(ctx, '-d'), protecaoDinamica(ctx), launchersDisponiveis(ctx)]);
+    const telasIniciais = new Set(homes.map((c) => c.split('/')[0]));
     const bloat = new Map(lerLista('bloat_seguro.txt').map((x) => [x.pkg, x.desc]));
     const lanc = new Map(lerLista('launchers_anuncio.txt').map((x) => [x.pkg, x.desc]));
     const setUsuario = new Set(usuario);
@@ -327,6 +328,7 @@ async function classificar(alvo) {
       const motivo = motivoProtecao(pkg, prot);
       if (motivo) return { ...base, categoria: 'essencial', motivo };
       if (lanc.has(pkg)) return { ...base, categoria: 'launcher', desc: lanc.get(pkg) };
+      if (telasIniciais.has(pkg)) return { ...base, categoria: 'launcher', desc: 'Tela inicial do fabricante: o botão Início do controle pode depender dela' };
       if (bloat.has(pkg)) return { ...base, categoria: 'bloat', desc: bloat.get(pkg) };
       if (setUsuario.has(pkg)) return { ...base, categoria: 'usuario' };
       return { ...base, categoria: 'duvida' };
@@ -348,10 +350,17 @@ async function desativar(alvo, { pacotes: lista, modo = 'disable', simular, perm
     const prot = await protecaoDinamica(ctx);
     const ativos = new Set(await pacotes(ctx, '-e'));
     const launchersConhecidos = new Set(lerLista('launchers_anuncio.txt').map((x) => x.pkg));
+    // Telas iniciais só podem ser desativadas pela aba Launcher: em muitos aparelhos o botão
+    // Início do controle é ligado a um launcher do fabricante, e desativá-lo deixa a tela preta.
+    const telasIniciais = new Set((await launchersDisponiveis(ctx)).map((c) => c.split('/')[0]));
     for (const pkg of lista) {
       const ignorar = permitirLaunchers && launchersConhecidos.has(pkg);
       const motivo = motivoProtecao(pkg, prot, ignorar);
       if (motivo) { ctx.recusado(`RECUSADO: ${pkg} (${motivo})`); continue; }
+      if (telasIniciais.has(pkg) && !permitirLaunchers) {
+        ctx.recusado(`RECUSADO: ${pkg} é uma tela inicial. Use a aba Launcher: o botão Início do controle pode depender dela.`);
+        continue;
+      }
       if (!ativos.has(pkg)) { ctx.aviso(`Ignorado: ${pkg} não está instalado ou já está desativado`); continue; }
       if (modo === 'uninstall') {
         if (await ctx.alterar(`Remove ${pkg} só para o usuário 0, mantendo o APK no sistema (volta com install-existing)`, ['pm', 'uninstall', '-k', '--user', '0', pkg])) ctx.registrar(`UNINSTALL|${pkg}`);

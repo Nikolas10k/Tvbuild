@@ -127,3 +127,13 @@ test('pareamento do Android 11+', { skip: PULAR }, async () => {
   assert.equal((await api('/api/parear', { endereco: '192.168.0.51:37123', codigo: '000000' })).status, 400);
   assert.equal((await api('/api/parear', { endereco: '192.168.0.51', codigo: '123456' })).status, 400);
 });
+
+test('telas iniciais só saem pela aba Launcher (botão Início pode depender delas)', { skip: PULAR }, async () => {
+  const r = await api('/api/op/desativar', { alvo: ALVO, pacotes: ['com.spocky.projengmenu'] });
+  assert.ok(r.json.passos.some((p) => p.tipo === 'recusado' && /tela inicial/.test(p.explicacao)));
+  assert.ok(!estado().desativados.includes('com.spocky.projengmenu'));
+  const ops = require('../painel/lib/ops');
+  const prot = { launchers: [], padroes: ops._interno.padroesProtegidos() };
+  assert.ok(ops._interno.motivoProtecao('com.jm.jmlauncher', prot));
+  assert.ok(ops._interno.motivoProtecao('com.htc.htclauncherhighenglishd08', prot));
+});

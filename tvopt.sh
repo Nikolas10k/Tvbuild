@@ -315,8 +315,10 @@ cmd_desativar() {
   local -a cand=()
   local p motivo
   if [ ${#extras[@]} -gt 0 ]; then
+    local homes; homes=" $(launchers_disponiveis | cut -d/ -f1 | sort -u | tr '\n' ' ') "
     for p in "${extras[@]}"; do
       if motivo="$(protegido "$p")"; then aviso "RECUSADO: $p ($motivo)"; continue; fi
+      if [[ "$homes" == *" $p "* ]]; then aviso "RECUSADO: $p é uma tela inicial (use o comando launcher; o botão Início pode depender dela)"; continue; fi
       printf '%s\n' "$ativos" | grep -qx "$p" || { aviso "Ignorado: $p não está instalado/ativo"; continue; }
       cand+=("$p")
     done
